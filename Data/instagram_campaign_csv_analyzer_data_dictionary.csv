@@ -1,0 +1,28 @@
+column,meaning
+date,Campaign date
+platform,Ad platform (Instagram)
+campaign_name,Campaign-level grouping
+ad_set_name,Ad set / ad variation name
+objective,Campaign objective
+result_type,Primary result type
+region,Audience region
+age_group,Audience age bucket
+gender,Audience gender
+device,Device type
+creative_format,Creative format
+cta,Call to action
+budget_inr,Daily budget in INR
+spend_inr,Amount spent in INR
+impressions,Ad impressions
+reach,Unique reach
+frequency,Average frequency
+clicks,Link clicks
+ctr_pct,Click-through rate %
+cpc_inr,Cost per click in INR
+landing_page_views,Landing page views
+add_to_cart,Add-to-cart actions
+purchases,Purchases
+conversions,Primary conversions
+conversion_rate_pct,Conversion rate %
+cost_per_conversion_inr,Cost per conversion
+roas,Return on ad spend
