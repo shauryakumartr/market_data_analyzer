@@ -44,7 +44,7 @@ def analytics(df):
         basic_kpis['total_conversions'] = df['conversions'].sum()
         basic_kpis['total_reach'] = df['reach'].sum()
         basic_kpis['avg_ctr'] = (basic_kpis['total_clicks'] / basic_kpis['total_impressions'])*100 if basic_kpis['total_impressions'] > 0 else 0
-        basic_kpis['avg_cpc'] = (basic_kpis['total_spend'] / basic_kpis['total_clicks'])*100 if basic_kpis['total_clicks'] > 0 else 0
+        basic_kpis['avg_cpc'] = (basic_kpis['total_spend'] / basic_kpis['total_clicks']) if basic_kpis['total_clicks'] > 0 else 0
         basic_kpis['avg_cpm'] = basic_kpis['total_spend'] / basic_kpis['total_impressions'] * 1000 if basic_kpis['total_impressions'] > 0 else 0
         basic_kpis['avg_conversion_rate'] = (basic_kpis['total_conversions'] / basic_kpis['total_clicks'])*100 if basic_kpis['total_clicks'] > 0 else 0
     except Exception as e:
