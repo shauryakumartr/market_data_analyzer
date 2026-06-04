@@ -4,6 +4,8 @@ from datetime import  datetime as dt
 def clean_data(df):
     anomalies = dict()
     #percentage columns
+    df['ctr_pct']=df['clicks']/df['impressions']*100
+    df['conversion_rate_pct']=df['conversions']/df['clicks']*100
     percentage_cols = ['ctr_pct', 'conversion_rate_pct']
     for col in percentage_cols:
         try:

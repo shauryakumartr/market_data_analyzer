@@ -4,12 +4,23 @@ from clean_data import clean_data
 from analyze_data import  analytics
 from insight import insight
 from load_data import load_csv
+import plotly.express as px
+
+#Application Title
 st.title('Instagram Campaign Analyzer')
+
+
 # Load Data
-df=load_csv('instagram_campaign_csv_analyzer_dataset.csv')
-        # Clean Data
+df=load_csv('instagram_campaign_csv_analyzer_dataset_new.csv')
+
+
+ # Clean Data
 df,anomalies = clean_data(df)
-basic_kpis, performance_comparison, segmented_analysis=analytics(df)
+
+# Analyze Data
+basic_kpis, performance_comparison, segmented_analysis, graph_data=analytics(df)
+
+# Generate Insights and Recommendations
 kpis,best_performance,under_performance,high_performance,low_ctr_performance,anomalies_insights,recommendations=insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
 
 # KPIs Container
@@ -200,3 +211,80 @@ st.write('''Campaign Objective Targeting Recommendation: Based on the segmented 
           "Consider tailoring creatives and messaging to better resonate with these segments or allocating more budget towards them for improved performance.''')
 st.dataframe(recommendations['Campaign'])
 
+st.divider()
+#Graphical Analysis
+st.title("Graphical Analysis: ")
+#Campaign Objective vs Spend
+figure1=px.bar(graph_data['campaign_name_vs_spend'], x=graph_data['campaign_name_vs_spend'].index, y='spend_inr', title='Campaign Name vs Spend', labels={'y': 'Total Spend (INR)', 'x': 'Campaign Name'},color=graph_data['campaign_name_vs_spend'].index)
+st.plotly_chart(figure1, use_container_width=True)
+
+#Campaign Name vs Conversion Rate
+figure2=px.bar(graph_data['campaign_name_vs_conversion_rate'], x=graph_data['campaign_name_vs_conversion_rate'].index, y=graph_data['campaign_name_vs_conversion_rate'].values, title='Campaign Name vs Conversion Rate', labels={'y': 'Conversion Rate (%)', 'x': 'Campaign Name'},color=graph_data['campaign_name_vs_conversion_rate'].index)
+st.plotly_chart(figure2, use_container_width=True)
+
+#Device vs Conversion Rate
+figure3=px.bar(graph_data['device_vs_conversion_rate'], x=graph_data['device_vs_conversion_rate'].index, y=graph_data['device_vs_conversion_rate'].values, title='Device vs Conversion Rate', labels={'y': 'Conversion Rate (%)', 'x': 'Device'},color=graph_data['device_vs_conversion_rate'].index)
+st.plotly_chart(figure3, use_container_width=True)
+
+#Spend vs Conversion 
+figure4=px.scatter(graph_data['spend_vs_conversions'], x=graph_data['spend_vs_conversions']['spend_inr'], y=graph_data['spend_vs_conversions']['conversions'], title='Spend vs Conversions', labels={'spend_inr': 'Spend (INR)', 'conversions': 'Conversions'},hover_name=graph_data['spend_vs_conversions'].index,size=graph_data['spend_vs_conversions']['conversions'],color=graph_data['spend_vs_conversions']['conversions'])
+st.plotly_chart(figure4, use_container_width=True)
+
+#Advanced Graphical Analysis
+with st.expander("View Advanced Graphical Analysis", expanded=False):
+
+    #Campaign Name vs CTR
+    figure5=px.bar(graph_data['campaign_name_vs_ctr'], x=graph_data['campaign_name_vs_ctr'].index, y=graph_data['campaign_name_vs_ctr'].values, title='Campaign Name vs CTR', labels={'y': 'CTR (%)', 'x': 'Campaign Name'},color=graph_data['campaign_name_vs_ctr'].index)
+    st.plotly_chart(figure5, use_container_width=True)
+
+    #Gender vs CTR
+    figure6=px.bar(graph_data['gender_vs_ctr'], x=graph_data['gender_vs_ctr'].index, y=graph_data['gender_vs_ctr'].values, title='Gender vs CTR', labels={'y': 'CTR (%)', 'x': 'Gender'},color=graph_data['gender_vs_ctr'].index)
+    st.plotly_chart(figure6, use_container_width=True)
+
+    #Gender vs Conversion Rate
+    figure7=px.bar(graph_data['gender_vs_conversion_rate'], x=graph_data['gender_vs_conversion_rate'].index, y=graph_data['gender_vs_conversion_rate'].values, title='Gender vs Conversion Rate', labels={'y': 'Conversion Rate (%)', 'x': 'Gender'},color=graph_data['gender_vs_conversion_rate'].index)
+    st.plotly_chart(figure7, use_container_width=True)
+
+    #Age Group vs CTR
+    figure8=px.bar(graph_data['age_group_vs_ctr'], x=graph_data['age_group_vs_ctr'].index, y=graph_data['age_group_vs_ctr'].values, title='Age Group vs CTR', labels={'y': 'CTR (%)', 'x': 'Age Group'},color=graph_data['age_group_vs_ctr'].index)
+    st.plotly_chart(figure8, use_container_width=True)
+
+    #Age Group vs Conversion Rate
+    figure9=px.bar(graph_data['age_group_vs_conversion_rate'], x=graph_data['age_group_vs_conversion_rate'].index, y=graph_data['age_group_vs_conversion_rate'].values, title='Age Group vs Conversion Rate', labels={'y': 'Conversion Rate (%)', 'x': 'Age Group'},color=graph_data['age_group_vs_conversion_rate'].index)
+    st.plotly_chart(figure9, use_container_width=True)
+
+    #Spend Over Time
+    figure10=px.line(x=graph_data['spend_over_time'].index, y=graph_data['spend_over_time'].values, title='Spend Over Time', labels={'x': 'Date', 'y': 'Total Spend (INR)'}, markers=True)
+    st.plotly_chart(figure10, use_container_width=True)
+
+    #Clicks Over Time
+    figure11=px.line(x=graph_data['clicks_over_time'].index, y=graph_data['clicks_over_time'].values, title='Clicks Over Time', labels={'x': 'Date', 'y': 'Total Clicks'}, markers=True)
+    st.plotly_chart(figure11, use_container_width=True)
+
+    #Conversions Over Time
+    figure12=px.line(x=graph_data['conversions_over_time'].index, y=graph_data['conversions_over_time'].values, title='Conversions Over Time', labels={'x': 'Date', 'y': 'Total Conversions'}, markers=True)
+    st.plotly_chart(figure12, use_container_width=True)
+
+    #CTR Over Time
+    figure13=px.line(x=graph_data['ctr_over_time'].index, y=graph_data['ctr_over_time'].values, title='CTR Over Time', labels={'x': 'Date', 'y': 'CTR (%)'}, markers=True)
+    st.plotly_chart(figure13, use_container_width=True)
+
+    #Spend Distribution by Objective
+    figure14=px.pie(values=graph_data['spend_distribution_by_objective'].values, names=graph_data['spend_distribution_by_objective'].index, title='Spend Distribution by Objective', labels={'names': 'Objective'})
+    st.plotly_chart(figure14, use_container_width=True)
+
+    #Conversions Distribution by Objective
+    figure15=px.pie(values=graph_data['conversions_distribution_by_objective'].values, names=graph_data['conversions_distribution_by_objective'].index, title='Conversions Distribution by Objective', labels={'names': 'Objective'})
+    st.plotly_chart(figure15, use_container_width=True)
+
+    #Spend vs CTR
+    figure16=px.scatter(graph_data['spend_vs_ctr'], x=graph_data['spend_vs_ctr']['spend_inr'], y=graph_data['spend_vs_ctr']['ctr_pct'], title='Spend vs CTR', labels={'spend_inr': 'Spend (INR)', 'ctr_pct': 'CTR (%)'}, hover_name=graph_data['spend_vs_ctr'].index, size=graph_data['spend_vs_ctr']['spend_inr'], color=graph_data['spend_vs_ctr']['ctr_pct'])
+    st.plotly_chart(figure16, use_container_width=True)
+
+    #Clicks vs Conversions
+    figure17=px.scatter(graph_data['clicks_vs_conversions'], x=graph_data['clicks_vs_conversions']['clicks'], y=graph_data['clicks_vs_conversions']['conversions'], title='Clicks vs Conversions', labels={'clicks': 'Total Clicks', 'conversions': 'Total Conversions'}, hover_name=graph_data['clicks_vs_conversions'].index, size=graph_data['clicks_vs_conversions']['conversions'], color=graph_data['clicks_vs_conversions']['conversions'])
+    st.plotly_chart(figure17, use_container_width=True)
+
+    #Impressions vs Clicks
+    figure18=px.scatter(graph_data['impressions_vs_clicks'], x=graph_data['impressions_vs_clicks']['impressions'], y=graph_data['impressions_vs_clicks']['clicks'], title='Impressions vs Clicks', labels={'impressions': 'Total Impressions', 'clicks': 'Total Clicks'}, hover_name=graph_data['impressions_vs_clicks'].index, size=graph_data['impressions_vs_clicks']['clicks'], color=graph_data['impressions_vs_clicks']['clicks'])
+    st.plotly_chart(figure18, use_container_width=True)

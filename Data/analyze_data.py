@@ -36,6 +36,7 @@ def analytics(df):
     basic_kpis = dict()
     performance_comparison = dict()
     segmented_analysis = dict()
+    graph_data = dict()
     # Basic Analytics KPIs
     try:
         basic_kpis['total_spend'] = df['spend_inr'].sum()
@@ -119,5 +120,111 @@ def analytics(df):
       
     except Exception as e:
         print("Error in file analyze_data.py in segmented analysis: ", e)
+
+    #Graph Data 
+    try:
+
+        #Campaign Name vs Spend
+        graph_data['campaign_name_vs_spend'] = df.groupby('campaign_name')['spend_inr'].sum()
+
+
+        #Campaign Objective vs Conversion Rate
+        total_conversions = df.groupby('campaign_name')['conversions'].sum()
+        total_clicks = df.groupby('campaign_name')['clicks'].sum()
+        graph_data['campaign_name_vs_conversion_rate'] = (total_conversions / total_clicks) * 100
+
+        #Device vs Conversion Rate
+        total_conversions = df.groupby('device')['conversions'].sum()
+        total_clicks = df.groupby('device')['clicks'].sum()
+        graph_data['device_vs_conversion_rate'] = (total_conversions / total_clicks) * 100
+
+        #Spend vs Conversions
+        graph_data['spend_vs_conversions'] = df.groupby('campaign_name').agg({'spend_inr': 'sum', 'conversions': 'sum'})
+
+        #Advanced Analysis 
+
+        #Campaign name vs CTR
+        total_clicks = df.groupby('campaign_name')['clicks'].sum()
+        total_impressions = df.groupby('campaign_name')['impressions'].sum()
+        graph_data['campaign_name_vs_ctr'] = (total_clicks / total_impressions) * 100
+
+        #Campaign name vs CPC
+        total_spend = df.groupby('campaign_name')['spend_inr'].sum()
+        total_clicks = df.groupby('campaign_name')['clicks'].sum()
+        graph_data['campaign_name_vs_cpc'] = total_spend / total_clicks
+
+        #Objective vs Spend
+        graph_data['objective_vs_spend'] = df.groupby('objective')['spend_inr'].sum()
+
+        #Objective vs Conversion Rate
+        total_conversions = df.groupby('objective')['conversions'].sum()
+        total_clicks = df.groupby('objective')['clicks'].sum()
+        graph_data['objective_vs_conversion_rate'] = (total_conversions / total_clicks) * 100
+
+        #Device vs CTR
+        total_clicks = df.groupby('device')['clicks'].sum()
+        total_impressions = df.groupby('device')['impressions'].sum()
+        graph_data['device_vs_ctr'] = (total_clicks / total_impressions) * 100
+
+        #Device vs CPC
+        total_spend = df.groupby('device')['spend_inr'].sum()
+        total_clicks = df.groupby('device')['clicks'].sum()
+        graph_data['device_vs_cpc'] = total_spend / total_clicks
+
+        #Gender vs CTR
+        total_clicks = df.groupby('gender')['clicks'].sum()
+        total_impressions = df.groupby('gender')['impressions'].sum()
+        graph_data['gender_vs_ctr'] = (total_clicks / total_impressions) * 100
+
+        #Gender vs Conversion Rate
+        total_conversions = df.groupby('gender')['conversions'].sum()
+        total_clicks = df.groupby('gender')['clicks'].sum()
+        graph_data['gender_vs_conversion_rate'] = (total_conversions / total_clicks) * 100
+
+        #Age Group vs CTR
+        total_clicks = df.groupby('age_group')['clicks'].sum()
+        total_impressions = df.groupby('age_group')['impressions'].sum()
+        graph_data['age_group_vs_ctr'] = (total_clicks / total_impressions) * 100
+
+        #Age Group vs Conversion Rate
+        total_conversions = df.groupby('age_group')['conversions'].sum()
+        total_clicks = df.groupby('age_group')['clicks'].sum()
+        graph_data['age_group_vs_conversion_rate'] = (total_conversions / total_clicks) * 100
+
+        #Spend Over Time
+        df_sorted = df.sort_values('date')
+        graph_data['spend_over_time'] = df_sorted.groupby('date')['spend_inr'].sum()
+
+        #Clicks Over Time
+        graph_data['clicks_over_time'] = df_sorted.groupby('date')['clicks'].sum()
+
+        #Conversions Over Time
+        graph_data['conversions_over_time'] = df_sorted.groupby('date')['conversions'].sum()
+
+        #CTR Over Time
+        daily_clicks = df_sorted.groupby('date')['clicks'].sum()
+        daily_impressions = df_sorted.groupby('date')['impressions'].sum()
+        graph_data['ctr_over_time'] = (daily_clicks / daily_impressions) * 100
+
+        #Spend Distribution by Objective
+        graph_data['spend_distribution_by_objective'] = df.groupby('objective')['spend_inr'].sum()
+
+        #Conversions Distribution by Objective
+        graph_data['conversions_distribution_by_objective'] = df.groupby('objective')['conversions'].sum()
+
+        #Spend vs CTR
+        graph_data['spend_vs_ctr'] = df.groupby('campaign_name').agg({'spend_inr': 'sum', 'ctr_pct': 'median'})
+
+        #Clicks vs Conversions
+        graph_data['clicks_vs_conversions'] = df.groupby('campaign_name').agg({'clicks': 'sum', 'conversions': 'sum'})
+
+        #Impressions vs Clicks
+        graph_data['impressions_vs_clicks'] = df.groupby('campaign_name').agg({'impressions': 'sum', 'clicks': 'sum'})
+
         
-    return basic_kpis, performance_comparison, segmented_analysis
+    except Exception as e:
+        print("Error in file analyze_data.py in graph data: ", e)
+
+
+
+    return basic_kpis, performance_comparison, segmented_analysis, graph_data

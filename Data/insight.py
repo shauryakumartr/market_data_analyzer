@@ -24,8 +24,8 @@ def performers(indexes,df,performance):
              'Date': df.loc[index, 'date'],
              'CTR': df.loc[index, 'ctr_pct']*100,
              'CTA': df.loc[index, 'cta'],
-             'Budget': df.loc[index, 'budget_inr'],
-             'Spend': df.loc[index, 'spend_inr'],
+             'Budget': f'₹ {df.loc[index, 'budget_inr']}',
+             'Spend': f'₹ {df.loc[index, 'spend_inr']}',
              'Impressions': df.loc[index, 'impressions'],
              'Clicks': df.loc[index, 'clicks'],
              'Purchases': df.loc[index, 'purchases'],
@@ -97,7 +97,7 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
               temp[index]={'Name': df.loc[index, 'campaign_name'],
                     'objective': df.loc[index, 'objective'],
                     'Date': df.loc[index, 'date'],
-                    'Budget': df.loc[index, 'budget_inr'],
+                    'Budget': f'₹ {df.loc[index, 'budget_inr']}',
                     'Spend': df.loc[index, 'spend_inr']}
          anomalies_insights['Spend greater than budget']=temp
     except Exception as e:
