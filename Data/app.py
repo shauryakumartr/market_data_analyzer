@@ -20,7 +20,7 @@ df,anomalies = clean_data(df)
 
 #Sidebar
 st.sidebar.header("Filters")
-st.sidebar.write("Use the filters below to customize the data displayed in the graphs.")
+st.sidebar.write("Use the filters below to customize the data displayed.")
 
 #Campaign Objective Filter
 campaign_objective_filter=st.sidebar.selectbox("Campaign Objective", options=["All"] + list(df['objective'].unique()), key='campaign_filter')
@@ -37,10 +37,14 @@ age_group_filter=st.sidebar.multiselect("Age Group", options=df['age_group'].uni
 #Campaign Name Filter
 campaign_name_filter=st.sidebar.multiselect("Campaign Name", options=df['campaign_name'].unique(), default=df['campaign_name'].unique(), key='campaign_name_filter')
 
+#Date Range Filter
+min_date = df['date'].min()
+max_date = df['date'].max()
+start_date= st.sidebar.date_input("Start Date", value=min_date, min_value=min_date, max_value=max_date, key='start_date_filter')
+end_date= st.sidebar.date_input("End Date", value=max_date, min_value=start_date, max_value=max_date, key='end_date_filter')
+
 # Filter data based on sidebar selection
-df_filtered = filter_data(df, campaign_objective_filter, device_filter, gender_filter, age_group_filter, campaign_name_filter)
-
-
+df_filtered = filter_data(df, campaign_objective_filter, device_filter, gender_filter, age_group_filter, campaign_name_filter, start_date, end_date)
 
 # Analyze Data
 basic_kpis, performance_comparison, segmented_analysis, graph_data=analytics(df_filtered)
@@ -186,55 +190,74 @@ st.divider()
 #Recommendations
 #Budget Reallocation Recommendation
 st.title("Recommendations: ")
-st.header("Budget Reallocation Recommendation: ")
-st.write('''These are the top 10performing campaigns based on conversion rate. 
-           Consider reallocating budget towards these campaigns to maximize conversions.''')
-st.dataframe(pd.DataFrame(recommendations['Budget Reallocation']).T)
+with st.container(border=True):
+ st.header("Budget Reallocation Recommendation: ")
+ st.subheader('''These are the top 10 performing campaigns based on conversion rate. Consider reallocating budget towards these campaigns to maximize conversions.''')
+ if recommendations['Budget Reallocation']: 
+   st.dataframe(pd.DataFrame(recommendations['Budget Reallocation']).T)
+ else:
+   st.write("Not enough data to provide budget reallocation recommendations . Consider reducing filters.")
 
 #Reducing Spend Recommendation
-st.header("Reducing Spend Recommendation: ")
-st.write('''These are the low performing campaigns based on conversion rate and high spend. 
-               Consider reducing spend on these campaigns to optimize budget allocation.
-            Note: These campaigns have above average spend but below average conversion rates, 
-                  indicating poor targeting , weak funnel or weak audience fit.''')
-st.dataframe(pd.DataFrame(recommendations['Reduce Spend']).T)
+with st.container(border=True):
+ st.header("Reducing Spend Recommendation: ")
+ st.subheader('''These are the low performing campaigns based on conversion rate and high spend. Consider reducing spend on these campaigns to optimize budget allocation.''')
+ st.subheader("Note: These campaigns have above average spend but below average conversion rates, indicating poor targeting , weak funnel or weak audience fit.")
+ if recommendations['Reduce Spend']:
+  st.dataframe(pd.DataFrame(recommendations['Reduce Spend']).T)
+ else:
+     st.write("Not enough data to provide reducing spend recommendations . Consider reducing filters.")
 
 #Creative Optimization Recommendation
-st.header("Creative Optimization Recommendation: ")
-st.write('''These campaigns have low CTR, indicating that the creatives may not be resonating with the audience. 
-          Consider testing new creatives, hooks , ad copy or targeting to improve engagement and CTR.''')
-st.dataframe(pd.DataFrame(recommendations['Creative Optimization']).T)
+with st.container(border=True):
+    st.header("Creative Optimization Recommendation: ")
+    st.write('''These campaigns have low CTR, indicating that the creatives may not be resonating with the audience. 
+              Consider testing new creatives, hooks , ad copy or targeting to improve engagement and CTR.''')
+    if recommendations['Creative Optimization']:
+     st.dataframe(pd.DataFrame(recommendations['Creative Optimization']).T)
+    else:
+     st.write("Not enough data to provide creative optimization recommendations . Consider reducing filters.")
 
 #Landing Page Optimization Recommendation
-st.header("Landing Page Optimization Recommendation: ")
-st.write('''These campaigns have above average CTR but below average conversion rates, indicating that while the ads are engaging, the landing page experience may be lacking. 
-          Consider optimizing the landing page for better user experience, faster load times, clearer CTAs, and more relevant content to improve conversion rates.''')
-st.dataframe(pd.DataFrame(recommendations['Landing Page Optimization']).T)
+with st.container(border=True):
+    st.header("Landing Page Optimization Recommendation: ")
+    st.write('''These campaigns have above average CTR but below average conversion rates, indicating that while the ads are engaging, the landing page experience may be lacking. 
+              Consider optimizing the landing page for better user experience, faster load times, clearer CTAs, and more relevant content to improve conversion rates.''')
+    
+    if recommendations['Landing Page Optimization']:
+        st.dataframe(pd.DataFrame(recommendations['Landing Page Optimization']).T)
+    else:
+        st.write("Not enough data to provide landing page optimization recommendations . Consider reducing filters.")
 
+st.divider()
 #Gender Targeting Recommendation
-st.header("Gender Targeting Recommendation: ")
-st.write('''Based on the segmented analysis, these are the top performing gender segments.
-         Consider tailoring creatives and messaging to better resonate with these segments or allocating more budget towards them for improved performance.''')
-st.dataframe(recommendations['Gender'])
+with st.container(border=True):
+    st.header("Gender Targeting Recommendation: ")
+    st.write('''Based on the segmented analysis, these are the top performing gender segments.
+             Consider tailoring creatives and messaging to better resonate with these segments or allocating more budget towards them for improved performance.''')
+    st.dataframe(recommendations['Gender'])
 
 
 #Age Group Targeting Recommendation
-st.header("Age Group Targeting Recommendation: ")
-st.write('''Age Group Targeting Recommendation: Based on the segmented analysis, these are the top performing age group segments. "\
-          "Consider tailoring creatives and messaging to better resonate with these segments or allocating more budget towards them for improved performance.''')
-st.dataframe(recommendations['Age'])
+with st.container(border=True):
+ st.header("Age Group Targeting Recommendation: ")
+ st.write('''Age Group Targeting Recommendation: Based on the segmented analysis, these are the top performing age group segments. "\
+           "Consider tailoring creatives and messaging to better resonate with these segments or allocating more budget towards them for improved performance.''')
+ st.dataframe(recommendations['Age'])
 
 #Device Targeting Recommendation
-st.header("Device Targeting Recommendation: ")
-st.write('''Device Targeting Recommendation: Based on the segmented analysis, these are the top performing device segments. "\
-          "Consider tailoring creatives and messaging to better resonate with these segments or allocating more budget towards them for improved performance.''')
-st.dataframe(recommendations['Device'])
+with st.container(border=True):
+    st.header("Device Targeting Recommendation: ")
+    st.write('''Device Targeting Recommendation: Based on the segmented analysis, these are the top performing device segments. "\
+              "Consider tailoring creatives and messaging to better resonate with these segments or allocating more budget towards them for improved performance.''')
+    st.dataframe(recommendations['Device'])
 
 #Campaign Objective Targeting Recommendation
-st.header("Campaign Objective Targeting Recommendation: ")
-st.write('''Campaign Objective Targeting Recommendation: Based on the segmented analysis, these are the top performing campaign objective segments. "\
-          "Consider tailoring creatives and messaging to better resonate with these segments or allocating more budget towards them for improved performance.''')
-st.dataframe(recommendations['Campaign'])
+with st.container(border=True):
+    st.header("Campaign Objective Targeting Recommendation: ")
+    st.write('''Campaign Objective Targeting Recommendation: Based on the segmented analysis, these are the top performing campaign objective segments. "\
+              "Consider tailoring creatives and messaging to better resonate with these segments or allocating more budget towards them for improved performance.''')
+    st.dataframe(recommendations['Campaign'])
 
 st.divider()
 #Graphical Analysis

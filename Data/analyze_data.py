@@ -70,19 +70,19 @@ def analytics(df):
         performance_comparison['highest spend']=df.loc[:,'spend_inr'].idxmax()
        
         #Low performing campaigns
-        filt= (df['spend_inr']>df['spend_inr'].mean())  & (df['conversion_rate_pct']<df['conversion_rate_pct'].mean())
+        filt= (df['spend_inr']>=df['spend_inr'].mean())  & (df['conversion_rate_pct']<=df['conversion_rate_pct'].mean())
         performance_comparison['Low performing campaigns']=df[filt].index
 
         #High performing campaigns
-        filt= (df['spend_inr']<df['spend_inr'].mean())  & (df['conversion_rate_pct']>df['conversion_rate_pct'].mean())
+        filt= (df['spend_inr']<=df['spend_inr'].mean())  & (df['conversion_rate_pct']>=df['conversion_rate_pct'].mean())
         performance_comparison['High performing campaigns']=df[filt].index
 
         #Low CTR campaigns
-        filt= (df['ctr_pct']<df['ctr_pct'].mean())
+        filt= (df['ctr_pct']<=df['ctr_pct'].mean())
         performance_comparison['Low CTR campaigns']=df[filt].index
 
         #Low Landing Page Conversions
-        filt= (df['conversions']<df['conversions'].mean())  & (df['ctr_pct']>df['ctr_pct'].mean())
+        filt= (df['conversions']<=df['conversions'].mean())  & (df['ctr_pct']>=df['ctr_pct'].mean())
         performance_comparison['Low Landing page conversion campaign']=df[filt].index
 
     except Exception as e:

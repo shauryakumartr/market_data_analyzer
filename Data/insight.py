@@ -92,7 +92,6 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
     try:
          
          spend_greater_than_budget_indexes=anomalies['Spend greater than budget']
-         print(spend_greater_than_budget_indexes)
          temp=dict()
          for index in spend_greater_than_budget_indexes:
               if index in df.index:
@@ -176,7 +175,8 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
            i=0
            temp=dict()
            for campaign in high_performing_campaigns:
-                 temp[campaign]={'Name': df.loc[campaign, 'campaign_name'],
+                 if campaign in df.index:
+                  temp[campaign]={'Name': df.loc[campaign, 'campaign_name'],
                                  'objective': df.loc[campaign, 'objective'],
                                  'Date': df.loc[campaign, 'date'],
                                  'Budget': df.loc[campaign, 'budget_inr'],
@@ -196,7 +196,8 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
                temp=dict()
                i=0
                for campaign in low_performing_campaigns:
-                    temp[campaign]={'Name': df.loc[campaign, 'campaign_name'],
+                    if campaign in df.index:
+                     temp[campaign]={'Name': df.loc[campaign, 'campaign_name'],
                                      'objective': df.loc[campaign, 'objective'],
                                      'Date': df.loc[campaign, 'date'],
                                      'Budget': df.loc[campaign, 'budget_inr'],
@@ -217,7 +218,8 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
           i=0
           temp=dict()
           for campaign in low_ctr_campaigns:
-                temp[campaign]={'Name': df.loc[campaign, 'campaign_name'],
+                if campaign in df.index:
+                     temp[campaign]={'Name': df.loc[campaign, 'campaign_name'],
                                      'objective': df.loc[campaign, 'objective'],
                                      'Date': df.loc[campaign, 'date'],
                                      'Budget': df.loc[campaign, 'budget_inr'],
@@ -237,7 +239,8 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
           temp=dict()
           i=0
           for campaign in low_landing_page_conversion_campaigns:
-                temp[campaign]={'Name': df.loc[campaign, 'campaign_name'],
+                if campaign in df.index:
+                     temp[campaign]={'Name': df.loc[campaign, 'campaign_name'],
                                      'objective': df.loc[campaign, 'objective'],
                                      'Date': df.loc[campaign, 'date'],
                                      'Budget': df.loc[campaign, 'budget_inr'],

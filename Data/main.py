@@ -11,16 +11,22 @@ def main():
         # Clean Data
        df,anomalies = clean_data(df)
 
-       campaign_objective_filter = "Sales"  
+       campaign_objective_filter = "All"
+       device_filter = []
+       gender_filter = []
+       age_group_filter = []
+       campaign_name_filter = []
+       k=df['date'].apply(lambda x: pd.to_datetime(x)).dt.date
+       
+       print(type(k[0]))
 
-       df_filtered = filter_data(df, campaign_objective_filter)
+       df_filtered = filter_data(df, campaign_objective_filter, device_filter, gender_filter, age_group_filter, campaign_name_filter)
 
         # Analyze Data
        basic_kpis, performance_comparison, segmented_analysis, graph_data=analytics(df_filtered)
 
        # Generate Insights and Recommendations
        kpis,best_performance,under_performance,high_performance,low_ctr_performance,anomalies_insights,recommendations=insight(df_filtered,anomalies,basic_kpis, performance_comparison, segmented_analysis)
-       print(anomalies_insights.keys())
     except Exception as e:
         print("Error in file main.py: ", e)
 

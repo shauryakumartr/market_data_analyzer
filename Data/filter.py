@@ -1,6 +1,6 @@
 import pandas as pd 
 
-def filter_data(df, campaign_objective, device, gender, age_group, campaign_name):
+def filter_data(df, campaign_objective, device, gender, age_group, campaign_name, start_date, end_date):
 
     # Filter by Campaign Objective
     if campaign_objective != "All":
@@ -23,5 +23,9 @@ def filter_data(df, campaign_objective, device, gender, age_group, campaign_name
     # Filter by Campaign Name
     if campaign_name:
         filtered_df = filtered_df[filtered_df['campaign_name'].isin(campaign_name)]
+
+    # Filter by Date Range
+    if start_date and end_date:
+        filtered_df = filtered_df[(filtered_df['date'] >= start_date) & (filtered_df['date'] <= end_date)]
 
     return filtered_df
