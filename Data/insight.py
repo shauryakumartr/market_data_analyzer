@@ -92,9 +92,11 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
     try:
          
          spend_greater_than_budget_indexes=anomalies['Spend greater than budget']
+         print(spend_greater_than_budget_indexes)
          temp=dict()
          for index in spend_greater_than_budget_indexes:
-              temp[index]={'Name': df.loc[index, 'campaign_name'],
+              if index in df.index:
+                temp[index]={'Name': df.loc[index, 'campaign_name'],
                     'objective': df.loc[index, 'objective'],
                     'Date': df.loc[index, 'date'],
                     'Budget': f'₹ {df.loc[index, 'budget_inr']}',
@@ -109,7 +111,8 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
          conversion_without_clicks_indexes=anomalies['Conversion without clicks']
          temp=dict()
          for index in conversion_without_clicks_indexes:
-              temp[index]={'Name': df.loc[index, 'campaign_name'],
+                 if index in df.index:
+                  temp[index]={'Name': df.loc[index, 'campaign_name'],
                     'objective': df.loc[index, 'objective'],
                     'Date': df.loc[index, 'date'],
                     'Budget': df.loc[index, 'budget_inr'],
@@ -123,7 +126,8 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
            missing_campaign_name_indexes=anomalies['Missing campaign name']
            temp=dict()
            for index in missing_campaign_name_indexes:
-                 temp[index]={'Name': 'N/A',
+                 if index in df.index:
+                  temp[index]={'Name': 'N/A',
                     'objective': df.loc[index, 'objective'],
                     'Date': df.loc[index, 'date'],
                     'Budget': df.loc[index, 'budget_inr'],
@@ -137,7 +141,8 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
            missing_spend_inr_indexes=anomalies['Missing spend inr']
            temp=dict()
            for index in missing_spend_inr_indexes:
-                 temp[index]={'Name': df.loc[index, 'campaign_name'],
+                 if index in df.index:
+                  temp[index]={'Name': df.loc[index, 'campaign_name'],
                     'objective': df.loc[index, 'objective'],
                     'Date': df.loc[index, 'date'],
                     'Budget': df.loc[index, 'budget_inr'],
@@ -151,7 +156,8 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
                missing_impressions_indexes=anomalies['Missing impressions']
                temp=dict()
                for index in missing_impressions_indexes:
-                    temp[index]={'Name': df.loc[index, 'campaign_name'],
+                 if index in df.index:
+                  temp[index]={'Name': df.loc[index, 'campaign_name'],
                           'objective': df.loc[index, 'objective'],
                           'Date': df.loc[index, 'date'],
                           'Budget': df.loc[index, 'budget_inr'],

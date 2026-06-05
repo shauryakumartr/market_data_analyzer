@@ -18,7 +18,7 @@ def clean_data(df):
 
       # Date
     try:
-        filt = df['date'] > pd.to_datetime(dt.today().date())
+        filt = df['date'].apply(lambda x: pd.to_datetime(x).date()) > dt.today().date()
         df=df[~filt]
     except Exception as e:
         print("Error in file clean_data.py in date filtering: ", e)

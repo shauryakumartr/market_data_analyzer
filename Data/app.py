@@ -4,6 +4,7 @@ from clean_data import clean_data
 from analyze_data import  analytics
 from insight import insight
 from load_data import load_csv
+from filter import filter_data 
 import plotly.express as px
 
 #Application Title
@@ -17,11 +18,35 @@ df=load_csv('instagram_campaign_csv_analyzer_dataset_new.csv')
  # Clean Data
 df,anomalies = clean_data(df)
 
+#Sidebar
+st.sidebar.header("Filters")
+st.sidebar.write("Use the filters below to customize the data displayed in the graphs.")
+
+#Campaign Objective Filter
+campaign_objective_filter=st.sidebar.selectbox("Campaign Objective", options=["All"] + list(df['objective'].unique()), key='campaign_filter')
+
+#Device Filter
+device_filter=st.sidebar.multiselect("Device", options=df['device'].unique(), default=df['device'].unique(), key='device_filter')
+
+#Gender Filter
+gender_filter=st.sidebar.multiselect("Gender", options=df['gender'].unique(), default=df['gender'].unique(),key='gender_filter')
+
+#Age Group Filter
+age_group_filter=st.sidebar.multiselect("Age Group", options=df['age_group'].unique(), default=df['age_group'].unique(), key='age_group_filter')
+
+#Campaign Name Filter
+campaign_name_filter=st.sidebar.multiselect("Campaign Name", options=df['campaign_name'].unique(), default=df['campaign_name'].unique(), key='campaign_name_filter')
+
+# Filter data based on sidebar selection
+df_filtered = filter_data(df, campaign_objective_filter, device_filter, gender_filter, age_group_filter, campaign_name_filter)
+
+
+
 # Analyze Data
-basic_kpis, performance_comparison, segmented_analysis, graph_data=analytics(df)
+basic_kpis, performance_comparison, segmented_analysis, graph_data=analytics(df_filtered)
 
 # Generate Insights and Recommendations
-kpis,best_performance,under_performance,high_performance,low_ctr_performance,anomalies_insights,recommendations=insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
+kpis,best_performance,under_performance,high_performance,low_ctr_performance,anomalies_insights,recommendations=insight(df_filtered,anomalies,basic_kpis, performance_comparison, segmented_analysis)
 
 # KPIs Container
 with st.container(border=True):
