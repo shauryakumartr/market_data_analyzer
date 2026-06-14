@@ -12,6 +12,7 @@ matplotlib = "*"
 streamlit = "*"
 plotly = "*"
 datetime = "*"
+google-genai = "*"
 
 [dev-packages]
 

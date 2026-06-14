@@ -1,5 +1,5 @@
 import pandas as pd
-
+from itertools import islice
 def best_performers(performance_comparison,df,best_performance,basis):
     try:
      temp={'Name': df.loc[performance_comparison[f'{basis}'], 'campaign_name'],
@@ -22,7 +22,7 @@ def performers(indexes,df,performance):
              performance[index]={
              'Campaign Name': df.loc[index, 'campaign_name'],
              'Date': df.loc[index, 'date'],
-             'CTR': df.loc[index, 'ctr_pct']*100,
+             'CTR': round(df.loc[index, 'ctr_pct']*100,2),
              'CTA': df.loc[index, 'cta'],
              'Budget': f'₹ {df.loc[index, 'budget_inr']}',
              'Spend': f'₹ {df.loc[index, 'spend_inr']}',
@@ -40,9 +40,10 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
     low_ctr_performance= dict()
     anomalies_insights = dict()
     recommendations = dict()
+    summary = dict() #Summary of all insights and recommendations for using in ai context.
 
 
-    #Performance Summary
+    #Performance KPIs
     try:
           kpis = {
     "Total Spend": basic_kpis['total_spend'],
@@ -50,11 +51,12 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
     "Total Clicks": basic_kpis['total_clicks'],
     "Total Conversions": basic_kpis['total_conversions'],
     "Total Reach": basic_kpis['total_reach'],
-    "Average CTR": basic_kpis['avg_ctr'],
-    "Average CPC": basic_kpis['avg_cpc'],
-    "Average CPM": basic_kpis['avg_cpm'],
-    "Conversion Effectiveness": float(basic_kpis['avg_conversion_rate'])
+    "Average CTR": round(basic_kpis['avg_ctr'],2),
+    "Average CPC": round(basic_kpis['avg_cpc'],2),
+    "Average CPM": round(basic_kpis['avg_cpm'],2),
+    "Conversion Effectiveness": round(float(basic_kpis['avg_conversion_rate']),2)
                    }
+          
     except Exception as e:
         print("Error in file insight.py in performance summary: ", e)
    
@@ -64,13 +66,15 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
     try:
          best_performers(performance_comparison,df,best_performance,'Best CTR')
          best_performers(performance_comparison,df,best_performance,'Highest conversion campaign')
+         
     except Exception as e:
          print("Error in file insight.py in best performers: ", e)
 
 
     #Underperformers
     try:
-         performers(performance_comparison['Low performing campaigns'],df,under_performance) 
+         performers(performance_comparison['Low performing campaigns'],df,under_performance)
+
     except Exception as e:
          print("Error in file insight.py in underperformers: ", e)
          
@@ -87,12 +91,14 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
             print("Error in file insight.py in low CTR performers: ", e)
 
 
+
      #Anomalies
      #Spend greater than budget
     try:
          
          spend_greater_than_budget_indexes=anomalies['Spend greater than budget']
          temp=dict()
+         temp2=dict()
          for index in spend_greater_than_budget_indexes:
               if index in df.index:
                 temp[index]={'Name': df.loc[index, 'campaign_name'],
@@ -100,7 +106,10 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
                     'Date': df.loc[index, 'date'],
                     'Budget': f'₹ {df.loc[index, 'budget_inr']}',
                     'Spend': df.loc[index, 'spend_inr']}
+                
+                temp2[index]=f"Name {df.loc[index, 'campaign_name']} ,objective{df.loc[index, 'objective']},date{df.loc[index, 'date']},budget{df.loc[index, 'budget_inr']},spend{df.loc[index, 'spend_inr']}"
          anomalies_insights['Spend greater than budget']=temp
+         summary["Spend Greater than Budget anomalie"]=temp2
     except Exception as e:
            print("Error in file insight.py in anomalies for spend greater than budget: ", e)
 
@@ -109,6 +118,7 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
     try:
          conversion_without_clicks_indexes=anomalies['Conversion without clicks']
          temp=dict()
+         temp2=dict()
          for index in conversion_without_clicks_indexes:
                  if index in df.index:
                   temp[index]={'Name': df.loc[index, 'campaign_name'],
@@ -116,7 +126,11 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
                     'Date': df.loc[index, 'date'],
                     'Budget': df.loc[index, 'budget_inr'],
                     'Spend': df.loc[index, 'spend_inr']}
+                  
+                 temp2[index]=f"Name {df.loc[index, 'campaign_name']} ,objective{df.loc[index, 'objective']},date{df.loc[index, 'date']},budget{df.loc[index, 'budget_inr']},spend{df.loc[index, 'spend_inr']}"
+
          anomalies_insights['Conversion without clicks']=temp
+         summary["Conversion Without click anomalie"]=temp2
     except Exception as e:
              print("Error in file insight.py in anomalies for conversion without clicks: ", e)
 
@@ -124,6 +138,7 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
     try:
            missing_campaign_name_indexes=anomalies['Missing campaign name']
            temp=dict()
+           temp2=dict()
            for index in missing_campaign_name_indexes:
                  if index in df.index:
                   temp[index]={'Name': 'N/A',
@@ -131,7 +146,10 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
                     'Date': df.loc[index, 'date'],
                     'Budget': df.loc[index, 'budget_inr'],
                     'Spend': df.loc[index, 'spend_inr']}
+                  
+                  temp2[index]=f"Name {df.loc[index, 'campaign_name']} ,objective{df.loc[index, 'objective']},date{df.loc[index, 'date']},budget{df.loc[index, 'budget_inr']},spend{df.loc[index, 'spend_inr']}"
            anomalies_insights['Missing campaign name']=temp
+           summary["Missing campaign name anomalie"]=temp2
     except Exception as e:
                 print("Error in file insight.py in anomalies for missing campaign name: ", e)
 
@@ -139,6 +157,7 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
     try:
            missing_spend_inr_indexes=anomalies['Missing spend inr']
            temp=dict()
+           temp2=dict()
            for index in missing_spend_inr_indexes:
                  if index in df.index:
                   temp[index]={'Name': df.loc[index, 'campaign_name'],
@@ -146,7 +165,10 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
                     'Date': df.loc[index, 'date'],
                     'Budget': df.loc[index, 'budget_inr'],
                     'Spend': 'N/A'}
+
+                 temp2[index]=f"Name {df.loc[index, 'campaign_name']} ,objective{df.loc[index, 'objective']},date{df.loc[index, 'date']},budget{df.loc[index, 'budget_inr']},spend{df.loc[index, 'spend_inr']}"
            anomalies_insights['Missing spend inr']=temp
+           summary["Missing inr anomalie"]=temp2
     except Exception as e:
           print("Error in file insight.py in anomalies for missing spend inr: ", e)
 
@@ -154,6 +176,7 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
     try:
                missing_impressions_indexes=anomalies['Missing impressions']
                temp=dict()
+               temp2=dict()
                for index in missing_impressions_indexes:
                  if index in df.index:
                   temp[index]={'Name': df.loc[index, 'campaign_name'],
@@ -162,7 +185,10 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
                           'Budget': df.loc[index, 'budget_inr'],
                           'Spend': df.loc[index, 'spend_inr'],
                           'Impressions': 'N/A'}
+
+                  temp2[index]=f"Name {df.loc[index, 'campaign_name']} ,objective{df.loc[index, 'objective']},date{df.loc[index, 'date']},budget{df.loc[index, 'budget_inr']},spend{df.loc[index, 'spend_inr']}"
                anomalies_insights['Missing impressions']=temp
+               summary["Missing impression anomalie"]=temp2
     except Exception as e:
           print("Error in file insight.py in anomalies for missing impressions: ", e)
 
@@ -174,6 +200,7 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
            high_performing_campaigns=performance_comparison['High performing campaigns']
            i=0
            temp=dict()
+           temp2=dict()
            for campaign in high_performing_campaigns:
                  if campaign in df.index:
                   temp[campaign]={'Name': df.loc[campaign, 'campaign_name'],
@@ -183,10 +210,17 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
                                  'Spend': df.loc[campaign, 'spend_inr'],
                                  'CTR': df.loc[campaign, 'ctr_pct']*100,
                                  'Conversion Rate': df.loc[campaign, 'conversion_rate_pct']*100}
+                  
+                  temp2[campaign]={'Name': df.loc[campaign, 'campaign_name'],
+                                 'Date': df.loc[campaign, 'date'],
+                                 'Spend': df.loc[campaign, 'spend_inr'],
+                                 'CTR': df.loc[campaign, 'ctr_pct']*100,
+                                 'Conversion Rate': df.loc[campaign, 'conversion_rate_pct']*100}
                  i+=1
                  if i>=10:  # Limiting to top 10 recommendations
                     break
            recommendations['Budget Reallocation']=temp
+           summary['Budget Reallocation']=(pd.DataFrame(temp2).T)
     except Exception as e:
             print("Error in file insight.py in budget reallocation recommendation: ", e)
 
@@ -194,6 +228,7 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
     try:
                low_performing_campaigns=performance_comparison['Low performing campaigns']
                temp=dict()
+               temp2=dict()
                i=0
                for campaign in low_performing_campaigns:
                     if campaign in df.index:
@@ -204,10 +239,17 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
                                      'Spend': df.loc[campaign, 'spend_inr'],
                                      'CTR': df.loc[campaign, 'ctr_pct']*100,
                                      'Conversion Rate': df.loc[campaign, 'conversion_rate_pct']*100}
+                     
+                     temp2[campaign]={'Name': df.loc[campaign, 'campaign_name'],
+                                     'Date': df.loc[campaign, 'date'],
+                                     'Spend': df.loc[campaign, 'spend_inr'],
+                                     'CTR': df.loc[campaign, 'ctr_pct']*100,
+                                     'Conversion Rate': df.loc[campaign, 'conversion_rate_pct']*100}
                     i+=1
                     if i>=10:  # Limiting to top 10 recommendations
                         break
                recommendations['Reduce Spend']=temp
+               summary['Reduce Spend']=(pd.DataFrame(temp2).T)
     except Exception as e:
             print("Error in file insight.py in reduce spend recommendation: ", e)
      
@@ -217,6 +259,7 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
           low_ctr_campaigns=performance_comparison['Low CTR campaigns']
           i=0
           temp=dict()
+          temp2=dict()
           for campaign in low_ctr_campaigns:
                 if campaign in df.index:
                      temp[campaign]={'Name': df.loc[campaign, 'campaign_name'],
@@ -226,10 +269,17 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
                                      'Spend': df.loc[campaign, 'spend_inr'],
                                      'CTR': df.loc[campaign, 'ctr_pct']*100,
                                      'Conversion Rate': df.loc[campaign, 'conversion_rate_pct']*100}
+                     
+                     temp[campaign]={'Name': df.loc[campaign, 'campaign_name'],
+                                     'Date': df.loc[campaign, 'date'],
+                                     'Spend': df.loc[campaign, 'spend_inr'],
+                                     'CTR': df.loc[campaign, 'ctr_pct']*100,
+                                     'Conversion Rate': df.loc[campaign, 'conversion_rate_pct']*100}
                 i+=1
                 if i>=10:  # Limiting to top 10 recommendations
                     break
           recommendations['Creative Optimization']=temp
+          summary['Creative Optimization']=(pd.DataFrame(temp2).T)
     except Exception as e:
             print("Error in file insight.py in creative optimization recommendation: ", e)
      
@@ -237,6 +287,7 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
     try:
           low_landing_page_conversion_campaigns=performance_comparison['Low Landing page conversion campaign']
           temp=dict()
+          temp2=dict()
           i=0
           for campaign in low_landing_page_conversion_campaigns:
                 if campaign in df.index:
@@ -247,10 +298,17 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
                                      'Spend': df.loc[campaign, 'spend_inr'],
                                      'CTR': df.loc[campaign, 'ctr_pct']*100,
                                      'Conversion Rate': df.loc[campaign, 'conversion_rate_pct']*100}
+                     
+                     temp2[campaign]={'Name': df.loc[campaign, 'campaign_name'],
+                                     'Date': df.loc[campaign, 'date'],
+                                     'Spend': df.loc[campaign, 'spend_inr'],
+                                     'CTR': df.loc[campaign, 'ctr_pct']*100,
+                                     'Conversion Rate': df.loc[campaign, 'conversion_rate_pct']*100}
                 i+=1
                 if i>=10:  # Limiting to top 10 recommendations
                     break
           recommendations['Landing Page Optimization']=temp
+          summary['Landing Page Optimization']=(pd.DataFrame(temp2).T)
     except Exception as e:
             print("Error in file insight.py in landing page optimization recommendation: ", e)
 
@@ -306,6 +364,24 @@ def insight(df,anomalies,basic_kpis, performance_comparison, segmented_analysis)
                                      'Total Spend': objective_segment.loc[index, 'Total Spend']}
     except Exception as e:
             print("Error in file insight.py in campaign objective targeting recommendation: ", e)
+     
+     #Summary
+
+     #KPIS
+    summary['KPIs']=kpis
+    
+    #Best Performers
+    for campaign in best_performance:
+      summary[campaign]={'Name':best_performance[campaign]['Name'],
+                         'CTR':best_performance[campaign]['CTR'],
+                         'Date':best_performance[campaign]['Date'],
+                         'Spend':best_performance[campaign]['Spend']}
+      
+     #Segmented Analysis
+    for analysis in segmented_analysis:
+     analysis_df=segmented_analysis[analysis].loc[:,['Total Spend','Total Clicks','Total Impressions','Total Conversions']]
+     summary[analysis]=analysis_df
 
 
-    return kpis,best_performance,under_performance,high_performance,low_ctr_performance,anomalies_insights,recommendations
+          
+    return kpis,best_performance,under_performance,high_performance,low_ctr_performance,anomalies_insights,recommendations,summary
