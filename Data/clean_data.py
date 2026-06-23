@@ -3,34 +3,6 @@ import numpy as np
 from datetime import  datetime as dt
 def clean_data(df):
     anomalies = dict()
-    mapping=dict()
-    
-    #Column Handling
-    columns=list(df.columns.str.strip().str.lower().str.replace(" ","_"))
-    df.columns=columns
-    aliasis={"date": ["date", "day", "report_date"],
-    "campaign_name": ["campaign_name", "campaign"],
-    "ad_set_name": ["ad_set_name", "ad_set", "adgroup"],
-    "gender": ["gender", "sex"],
-    "age_group": ["age_group", "age_range"],
-    "device": ["device", "device_type"],
-    "cta": ["cta", "call_to_action"],
-    "budget_inr": ["budget", "campaign_budget", "daily_budget"],
-    "spend_inr": ["spend", "amount_spent", "ad_spend"],
-    "clicks": ["clicks", "link_clicks"],
-    "reach": ["reach", "unique_reach"],
-    "frequency": ["frequency"],
-    "purchases": ["purchases", "purchase", "orders"],
-    "roas": ["roas", "return_on_ad_spend"]}
-    for column in df.columns:
-     for alias,value in aliasis.items():
-        if column in value:
-            mapping[column]=alias
-            df.rename(columns={column:alias},inplace=True)
-            break
-        else:
-            mapping[column]=None
-            
             
     #Date Cleaning
     df.columns = df.columns.str.strip()  # Removes hidden spaces from headers
@@ -110,4 +82,4 @@ def clean_data(df):
     except Exception as e:
         print("Error in file clean_data.py in business logic filtering: ", e)
 
-    return df, anomalies,mapping
+    return df, anomalies

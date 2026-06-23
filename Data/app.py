@@ -7,6 +7,7 @@ from load_data import load_csv
 from filter import filter_data 
 import plotly.express as px
 from ai_handling import ai
+from mapping import mapper
 
 #Application Title
 st.title('Instagram Campaign Analyzer')
@@ -25,10 +26,11 @@ if uploaded_file:
         except Exception:
          st.error("Invalid file or file type")
          st.stop()
-    
-        # Clean Data
-        df,anomalies,mapping= clean_data(df)
+         
+        #Data Mapping
+        mapping=mapper(df)
         st.header("Please Check the mapping before proceeding with analytics")
+        user_mapping=dict()
         with st.expander("Mapping"):
             col1,col2,col3,col4=st.columns([0.2,1.6, 1,0.1])
             with col2:
@@ -42,9 +44,19 @@ if uploaded_file:
                      st.write(column)
                      with col3:
                       dropdown_options=[None,"date","platform","campaign_name","ad_set_name","objective","result_type","region","age_group","gender","device","creative_format","cta","budget_inr","spend_inr","impressions","reach","frequency","clicks","ctr_pct","cpc_inr","landing_page_views","add_to_cart","purchases","conversions","conversion_rate_pct","cost_per_conversion_inr","roas","Ignore Column","Custom Column"]
-                      st.selectbox("Select Column",options =dropdown_options ,key=f'column_mapper_{column}',index=dropdown_options.index(alias))
-                
+                      user_mapping[column]=st.selectbox("Select Column",options =dropdown_options ,key=f'column_mapper_{column}',index=dropdown_options.index(alias))
+            
+          
+              
         if st.button("Show Analytics"):
+        
+            #Final Mapping
+            df.rename(columns=user_mapping,inplace=True)
+            
+        
+            # Clean Data
+            df,anomalies= clean_data(df)
+            
 
             #Sidebar
             st.sidebar.header("Filters")

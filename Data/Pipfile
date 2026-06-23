@@ -6,13 +6,14 @@ name = "pypi"
 [packages]
 pandas = "*"
 numpy = "*"
-jupyterlab = "*"
 regex = "*"
 matplotlib = "*"
 streamlit = "*"
 plotly = "*"
 datetime = "*"
 google-genai = "*"
+jupyterlab = "*"
+notebook = "*"
 
 [dev-packages]
 
