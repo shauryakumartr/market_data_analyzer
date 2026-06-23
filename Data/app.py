@@ -8,6 +8,7 @@ from filter import filter_data
 import plotly.express as px
 from ai_handling import ai
 from mapping import mapper
+from duplicated_check import duplicated
 
 #Application Title
 st.title('Instagram Campaign Analyzer')
@@ -28,31 +29,46 @@ if uploaded_file:
          st.stop()
          
         #Data Mapping
-        mapping=mapper(df)
-        st.header("Please Check the mapping before proceeding with analytics")
-        user_mapping=dict()
-        with st.expander("Mapping"):
-            col1,col2,col3,col4=st.columns([0.2,1.6, 1,0.1])
-            with col2:
-                st.subheader("Your Column")
-            with col3:
-                st.subheader("Program see's it as")
-            for column,alias in mapping.items():
-                with st.container(border=True):
-                 col1,col2,col3,col4=st.columns([0.3,1.8, 1,0.3])
-                 with col2: 
-                     st.write(column)
-                     with col3:
-                      dropdown_options=[None,"date","platform","campaign_name","ad_set_name","objective","result_type","region","age_group","gender","device","creative_format","cta","budget_inr","spend_inr","impressions","reach","frequency","clicks","ctr_pct","cpc_inr","landing_page_views","add_to_cart","purchases","conversions","conversion_rate_pct","cost_per_conversion_inr","roas","Ignore Column","Custom Column"]
-                      user_mapping[column]=st.selectbox("Select Column",options =dropdown_options ,key=f'column_mapper_{column}',index=dropdown_options.index(alias))
-            
-          
-              
-        if st.button("Show Analytics"):
-        
-            #Final Mapping
+        if "mapping_confirmed" not in st.session_state:
+            st.session_state.mapping_confirmed=False
+        if not st.session_state.mapping_confirmed:
+         mapping=mapper(df)
+         st.header("Please Check the mapping before proceeding with analytics")
+         user_mapping=dict()
+         with st.expander("Mapping"):
+             col1,col2,col3,col4=st.columns([0.2,1.6, 1,0.1])
+             with col2:
+                 st.subheader("Your Column")
+             with col3:
+                 st.subheader("Program see's it as")
+             for column,alias in mapping.items():
+                 with st.container(border=True):
+                  col1,col2,col3,col4=st.columns([0.3,1.8, 1,0.3])
+                  with col2: 
+                      st.write(column)
+                      with col3:
+                       dropdown_options=[None,"date","platform","campaign_name","ad_set_name","objective","result_type","region","age_group","gender","device","creative_format","cta","budget_inr","spend_inr","impressions","reach","frequency","clicks","ctr_pct","cpc_inr","landing_page_views","add_to_cart","purchases","conversions","conversion_rate_pct","cost_per_conversion_inr","roas","Ignore Column","Custom Column"]
+                       user_mapping[column]=st.selectbox("Select Column",options =dropdown_options ,key=f'column_mapper_{column}',index=dropdown_options.index(alias))
+         if st.button("Confirm mapping"):
+             #Final Mapping
             df.rename(columns=user_mapping,inplace=True)
+            duplication=duplicated(df)
+            if not duplicated:
+                st.error("Duplicated Columns found. Please check the mapping")
+            else:
+                st.session_state.mapping_confirmed=True
+                st.rerun()
             
+        #Analytics
+        if "analytics_view" not in st.session_state:
+            st.session_state.analytics_view = False
+            
+        if st.session_state.mapping_confirmed:
+            if st.button("Show Analytics"):
+                st.session_state.analytics_view = True
+                st.rerun()
+              
+        if st.session_state.analytics_view:
         
             # Clean Data
             df,anomalies= clean_data(df)
