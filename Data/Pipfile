@@ -14,6 +14,7 @@ datetime = "*"
 google-genai = "*"
 jupyterlab = "*"
 notebook = "*"
+pywinpty = {version="*", markers="platform_system == 'Windows'"}
 
 [dev-packages]
 

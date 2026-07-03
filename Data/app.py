@@ -1,14 +1,19 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 from clean_data import clean_data
 from analyze_data import  analytics
 from insight import insight
 from load_data import load_csv
 from filter import filter_data 
-import plotly.express as px
 from ai_handling import ai
 from mapping import mapper
-from duplicated_check import duplicated
+from Validator.duplicated_check import duplicated
+from Data.Validator.missing_validation import validation
+import logging
+
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s : %(message)s')
 
 #Application Title
 st.title('Instagram Campaign Analyzer')
@@ -25,7 +30,7 @@ if uploaded_file:
         try:
          df=pd.read_csv(uploaded_file)
         except Exception:
-         st.error("Invalid file or file type")
+         st.error("Invalid file type or corrupt file")
          st.stop()
          
         #Data Mapping
