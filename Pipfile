@@ -4,10 +4,17 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-datetime = "*"
-plotly = "*"
-streamlit = "*"
+pandas = "*"
+numpy = "*"
+regex = "*"
 matplotlib = "*"
+plotly = "*"
+datetime = "*"
+google-genai = "*"
+jupyterlab = "*"
+notebook = "*"
+pywinpty = {version="*", markers="platform_system == 'Windows'"}
+streamlit = "*"
 
 [dev-packages]
 
