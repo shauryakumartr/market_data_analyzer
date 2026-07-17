@@ -33,6 +33,80 @@ from visualization.charts import (
     create_pie_chart,
 )
 
+# Page configuration setup
+st.set_page_config(
+    page_title="Instagram Campaign Analyzer",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Inject premium custom CSS for styling
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+    
+    /* Global Typography & Font Family */
+    html, body, [class*="css"] {
+        font-family: 'Outfit', sans-serif;
+    }
+    
+    /* Top Banner Gradient */
+    .header-banner {
+        background: linear-gradient(135deg, #FF3F6C 0%, #FF6840 50%, #7928CA 100%);
+        padding: 2rem;
+        border-radius: 12px;
+        color: white;
+        text-align: center;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+    .header-banner h1 {
+        font-weight: 700;
+        margin: 0;
+        font-size: 2.5rem;
+    }
+    .header-banner p {
+        font-weight: 300;
+        margin-top: 0.5rem;
+        font-size: 1.1rem;
+        opacity: 0.9;
+    }
+    
+    /* Metrics Styling */
+    div[data-testid="stMetric"] {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        padding: 1rem;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s ease;
+    }
+    div[data-testid="stMetric"]:hover {
+        transform: translateY(-2px);
+        border-color: #FF3F6C;
+    }
+    
+    /* Tabs Customization */
+    button[data-baseweb="tab"] {
+        font-size: 1.1rem;
+        font-weight: 600;
+        padding: 0.5rem 1.5rem;
+    }
+    
+    /* Box Container Styling */
+    div.stExpander, div.element-container {
+        border-radius: 8px;
+    }
+    
+    /* Sidebar aesthetics */
+    section[data-testid="stSidebar"] {
+        background-color: #0E1117;
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Setup logging configuration
 logging.basicConfig(
     level=logging.INFO,
@@ -40,15 +114,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Application Title
-st.title('Instagram Campaign Analyzer')
+# Render Header Banner
+st.markdown("""
+<div class="header-banner">
+    <h1>Instagram Campaign Analyzer</h1>
+    <p>Optimize your Instagram marketing campaigns with precision metrics and AI-driven consultant advice</p>
+</div>
+""", unsafe_allow_html=True)
 
-# File Upload
-uploaded_file = st.file_uploader("Upload a CSV file of the data", type=["csv"])
+# File Upload Section
+uploaded_file = st.file_uploader("Upload a CSV file containing campaign data to begin:", type=["csv"])
 
 if uploaded_file:
     if not uploaded_file.name.endswith(".csv"):
-        st.error("Invalid Filetype. Use a CSV file")
+        st.error("Invalid Filetype. Please upload a CSV file.")
         st.stop()
 
     # Load raw data
@@ -65,36 +144,36 @@ if uploaded_file:
 
     if not st.session_state.mapping_confirmed:
         predicted_mapping = map_columns(df_raw)
-        st.header("Please verify and check the column mapping before proceeding")
+        st.subheader("📋 Verify Column Mappings")
+        st.write("Ensure your CSV headers map to the correct canonical metrics used by the analyzer.")
         
         user_mapping = {}
-        with st.expander("Column Mapping Configurations", expanded=True):
+        with st.container(border=True):
             col_left, col_right = st.columns(2)
             with col_left:
-                st.subheader("Your CSV Column")
+                st.markdown("**Your CSV Column**")
             with col_right:
-                st.subheader("Mapped Canonical Field")
+                st.markdown("**Canonical Field**")
 
             for column, predicted_alias in predicted_mapping.items():
-                with st.container(border=True):
-                    c_left, c_right = st.columns(2)
-                    with c_left:
-                        st.write(column)
-                    with c_right:
-                        default_idx = (
-                            MAPPING_DROPDOWN_OPTIONS.index(predicted_alias)
-                            if predicted_alias in MAPPING_DROPDOWN_OPTIONS
-                            else 0
-                        )
-                        user_mapping[column] = st.selectbox(
-                            "Select Canonical Field",
-                            options=MAPPING_DROPDOWN_OPTIONS,
-                            key=f"column_mapper_{column}",
-                            index=default_idx,
-                            label_visibility="collapsed"
-                        )
+                c_left, c_right = st.columns(2)
+                with c_left:
+                    st.text(column)
+                with c_right:
+                    default_idx = (
+                        MAPPING_DROPDOWN_OPTIONS.index(predicted_alias)
+                        if predicted_alias in MAPPING_DROPDOWN_OPTIONS
+                        else 0
+                    )
+                    user_mapping[column] = st.selectbox(
+                        f"Select mapping for {column}",
+                        options=MAPPING_DROPDOWN_OPTIONS,
+                        key=f"column_mapper_{column}",
+                        index=default_idx,
+                        label_visibility="collapsed"
+                    )
 
-        if st.button("Confirm Mapping"):
+        if st.button("Confirm Mappings and Initialize Dashboard", type="primary"):
             # Check for duplicate mappings
             dup_report = validate_no_duplicate_mappings(user_mapping)
             if not dup_report['is_valid']:
@@ -113,7 +192,8 @@ if uploaded_file:
         st.session_state.analytics_view = False
 
     if st.session_state.mapping_confirmed and not st.session_state.analytics_view:
-        if st.button("Proceed to Analytics"):
+        st.success("Mapping confirmed successfully!")
+        if st.button("Open Analysis Suite", type="primary"):
             st.session_state.analytics_view = True
             st.rerun()
 
@@ -134,17 +214,53 @@ if uploaded_file:
         # Run Validation Pipeline
         validation_report = run_validation(df_mapped)
         if not validation_report['is_valid']:
-            st.error("Uploaded dataset failed schema or structural validation checks. Please review logs.")
-            with st.expander("Validation Report Details"):
+            st.error("Uploaded dataset failed critical structural validation checks.")
+            with st.expander("Show Validation Report Details", expanded=True):
                 st.write(validation_report)
             st.stop()
+
+        # Display non-blocking warnings in sidebar/top-bar
+        with st.sidebar:
+            st.header("⚡ Validation Logs")
+            if validation_report['duplicates']['duplicate_row_count'] > 0:
+                st.warning(f"⚠️ {validation_report['duplicates']['duplicate_row_count']} Duplicate Rows found.")
+            if len(validation_report['missing']['rows_excessive_missing_idx']) > 0:
+                st.warning(f"⚠️ {len(validation_report['missing']['rows_excessive_missing_idx'])} columns >50% empty.")
+            if not validation_report['duplicates']['duplicate_row_count'] and not len(validation_report['missing']['rows_excessive_missing_idx']):
+                st.success("✅ Structural integrity validated.")
+
+        # Derived metrics discrepancies workflow
+        metric_choice = "Calculated Metrics (Recommended)"
+        if validation_report['derived_metrics']['has_discrepancies']:
+            st.warning("⚠️ Discrepancies found between uploaded derived metrics and system-calculated values.")
+            with st.expander("Inspect Derived Metric Differences"):
+                st.write(validation_report['derived_metrics']['discrepancies'])
+            metric_choice = st.radio(
+                "Source derived metrics to use for analysis:",
+                options=["Calculated Metrics (Recommended)", "Uploaded Metrics"],
+                key="derived_metric_choice"
+            )
+
+        # Apply derived metrics selection to mapping frame
+        if metric_choice == "Calculated Metrics (Recommended)":
+            df_mapped['ctr_pct'] = (df_mapped['clicks'] / df_mapped['impressions']).fillna(0.0) if 'impressions' in df_mapped.columns and 'clicks' in df_mapped.columns else 0.0
+            df_mapped['cpc_inr'] = (df_mapped['spend_inr'] / df_mapped['clicks']).fillna(0.0) if 'spend_inr' in df_mapped.columns and 'clicks' in df_mapped.columns else 0.0
+            df_mapped['conversion_rate_pct'] = (df_mapped['conversions'] / df_mapped['clicks']).fillna(0.0) if 'conversions' in df_mapped.columns and 'clicks' in df_mapped.columns else 0.0
+        else:
+            # Ensure uploaded metrics are normalized (0-1) for percentages to keep systems consistent
+            for pct_col in ['ctr_pct', 'conversion_rate_pct']:
+                if pct_col in df_mapped.columns:
+                    max_val = df_mapped[pct_col].max()
+                    if max_val > 1.0:
+                        df_mapped[pct_col] = df_mapped[pct_col] / 100.0
 
         # Clean Data
         df_cleaned = clean_data(df_mapped)
         anomalies = detect_anomalies(df_cleaned)
 
         # Filters Sidebar setup
-        st.sidebar.header("Data Selection Filters")
+        st.sidebar.header("🎯 Filters")
+        st.sidebar.write("Refine campaign data:")
         
         # Guard filters for column existence
         objectives = ["All"]
@@ -213,42 +329,33 @@ if uploaded_file:
             segmented_analysis=segmented_analysis
         )
 
-        # AI Assistant Container
-        with st.container(border=True):
-            st.header("💡 Ask AI Assistant")
-            prompt = st.text_area("Ask questions about your campaign data:", height=100)
-            if st.button("Generate AI Insights"):
-                if prompt.strip():
-                    with st.spinner("AI is analyzing campaigns..."):
-                        try:
-                            ai_response = generate_ai_response(prompt, ai_summary)
-                            st.subheader("AI Analysis Result:")
-                            st.write(ai_response)
-                        except Exception as e:
-                            st.error(f"AI generation failed: {e}")
-                else:
-                    st.warning("Please enter a question.")
+        # Layout Main Dashboard using Tabs
+        tab_overview, tab_cohorts, tab_recommendations, tab_ai, tab_audit = st.tabs([
+            "📊 Overview Dashboard",
+            "🧩 Cohorts & Segments",
+            "💡 Actionable Advice",
+            "🤖 AI Consultant",
+            "🚨 Diagnostics & Audit"
+        ])
 
-        # KPIs Section
-        with st.container(border=True):
-            st.header("📈 Key Performance Indicators (KPIs)")
-            col1, col2, col3 = st.columns(3)
+        # --- TAB 1: OVERVIEW DASHBOARD ---
+        with tab_overview:
+            st.subheader("📈 Main Key Performance Indicators")
+            col1, col2, col3, col4, col5 = st.columns(5)
             with col1:
                 st.metric(label="Total Spend", value=f"₹{kpi_summary['Total Spend']:,.2f}")
             with col2:
                 st.metric(label="Total Impressions", value=f"{int(kpi_summary['Total Impressions']):,}")
             with col3:
                 st.metric(label="Total Clicks", value=f"{int(kpi_summary['Total Clicks']):,}")
-            
-            col4, col5, col6 = st.columns(3)
             with col4:
                 st.metric(label="Total Conversions", value=f"{int(kpi_summary['Total Conversions']):,}")
             with col5:
-                st.metric(label="Total Reach", value=f"{int(kpi_summary['Total Reach']):,}")
-            with col6:
                 st.metric(label="Average CTR", value=f"{kpi_summary['Average CTR']}%")
-            
-            col7, col8, col9 = st.columns(3)
+
+            col6, col7, col8, col9 = st.columns(4)
+            with col6:
+                st.metric(label="Total Reach", value=f"{int(kpi_summary['Total Reach']):,}")
             with col7:
                 st.metric(label="Average CPC", value=f"₹{kpi_summary['Average CPC']:.2f}")
             with col8:
@@ -256,360 +363,287 @@ if uploaded_file:
             with col9:
                 st.metric(label="Conversion Rate", value=f"{kpi_summary['Conversion Effectiveness']}%")
 
-        st.divider()
+            st.divider()
 
-        # Best Performers
-        with st.container(border=True):
-            st.title("🏆 Best Performers")
-            for basis, info in best_perf_details.items():
-                st.subheader(f"Best Campaign by {basis.replace('_', ' ').title()}")
-                st.write(f"**Campaign Name:** {info['Name']}")
-                col_c1, col_c2, col_c3 = st.columns(3)
-                with col_c1:
-                    st.metric(label="Conversions", value=f"{int(info['Conversions'])}")
-                with col_c2:
-                    st.metric(label="CTR (%)", value=f"{info['CTR'] * 100:.4f}%")
-                with col_c3:
-                    st.metric(label="Spend", value=f"₹{info['Spend']:,.2f}")
+            # Best Performers Highlight Cards
+            st.subheader("🏆 Best Performing Campaigns")
+            best_cols = st.columns(len(best_perf_details))
+            for i, (basis, info) in enumerate(best_perf_details.items()):
+                with best_cols[i]:
+                    with st.container(border=True):
+                        st.markdown(f"### Best Campaign by **{basis.replace('_', ' ').title()}**")
+                        st.markdown(f"**Name**: `{info['Name']}`")
+                        st.write(f"📅 Date: {info['Date']}")
+                        st.write(f"🎯 CTA: {info['CTA']}")
+                        col_stat1, col_stat2 = st.columns(2)
+                        with col_stat1:
+                            st.metric("Conversions", f"{int(info['Conversions'])}")
+                            st.metric("Spend", f"₹{info['Spend']:,.2f}")
+                        with col_stat2:
+                            st.metric("CTR (%)", f"{info['CTR'] * 100:.2f}%")
+                            st.metric("Clicks", f"{int(info['Clicks'])}")
 
-                with st.expander("View Full Campaign Metrics"):
-                    col_det1, col_det2, col_det3 = st.columns(3)
-                    with col_det1:
-                        st.metric(label="Clicks", value=f"{int(info['Clicks'])}")
-                        st.metric(label="Purchases", value=f"{int(info['Purchases'])}")
-                    with col_det2:
-                        st.metric(label="Date", value=str(info['Date']))
-                        st.metric(label="Impressions", value=f"{int(info['Impressions'])}")
-                    with col_det3:
-                        st.metric(label="CTA", value=str(info['CTA']))
-                        st.metric(label="Budget", value=f"₹{info['Budget']:,.2f}")
+            st.divider()
 
-        st.divider()
+            # Visualizations Layout (Side by Side)
+            st.subheader("📉 Campaign Performance Visualizations")
+            col_chart1, col_chart2 = st.columns(2)
+            with col_chart1:
+                if 'campaign_name_vs_spend' in graph_data:
+                    st.plotly_chart(
+                        create_bar_chart(
+                            graph_data['campaign_name_vs_spend'],
+                            x_label="Campaign Name",
+                            y_label="Total Spend (INR)",
+                            title="Campaign Name vs Spend"
+                        ),
+                        use_container_width=True
+                    )
+            with col_chart2:
+                if 'campaign_name_vs_conversion_rate' in graph_data:
+                    st.plotly_chart(
+                        create_bar_chart(
+                            graph_data['campaign_name_vs_conversion_rate'],
+                            x_label="Campaign Name",
+                            y_label="Conversion Rate (%)",
+                            title="Campaign Name vs Conversion Rate"
+                        ),
+                        use_container_width=True
+                    )
 
-        # Performers Lists
-        st.title("📊 Campaign Cohort Rankings")
-        
-        with st.expander("View High Performing Campaigns (Below Avg Spend & Above Avg CVR)"):
-            if high_perf:
-                st.dataframe(pd.DataFrame(high_perf).T)
+            col_chart3, col_chart4 = st.columns(2)
+            with col_chart3:
+                if 'spend_vs_conversions' in graph_data:
+                    st.plotly_chart(
+                        create_scatter_chart(
+                            graph_data['spend_vs_conversions'],
+                            x_column="spend_inr",
+                            y_column="conversions",
+                            title="Spend vs Conversions (Cost Efficiency)",
+                            x_label="Spend (INR)",
+                            y_label="Conversions",
+                            size_column="conversions",
+                            color_column="conversions"
+                        ),
+                        use_container_width=True
+                    )
+            with col_chart4:
+                if 'spend_over_time' in graph_data:
+                    st.plotly_chart(
+                        create_line_chart(
+                            graph_data['spend_over_time'],
+                            x_label="Date",
+                            y_label="Total Spend (INR)",
+                            title="Spend Over Time (Timeline)"
+                        ),
+                        use_container_width=True
+                    )
+
+        # --- TAB 2: COHORTS & SEGMENTS ---
+        with tab_cohorts:
+            st.subheader("🧩 Audience Cohorts breakdown")
+            
+            col_seg1, col_seg2 = st.columns(2)
+            with col_seg1:
+                st.markdown("#### Age Group Cohorts")
+                if not segmented_analysis['age_segment'].empty:
+                    st.dataframe(segmented_analysis['age_segment'].sort_values(by='Segment CTR', ascending=False), use_container_width=True)
+            with col_seg2:
+                st.markdown("#### Gender Cohorts")
+                if not segmented_analysis['gender_segment'].empty:
+                    st.dataframe(segmented_analysis['gender_segment'].sort_values(by='Segment CTR', ascending=False), use_container_width=True)
+
+            col_seg3, col_seg4 = st.columns(2)
+            with col_seg3:
+                st.markdown("#### Device Type Cohorts")
+                if not segmented_analysis['device_segment'].empty:
+                    st.dataframe(segmented_analysis['device_segment'].sort_values(by='Segment CTR', ascending=False), use_container_width=True)
+            with col_seg4:
+                st.markdown("#### Marketing Objective Cohorts")
+                if not segmented_analysis['objective_segment'].empty:
+                    st.dataframe(segmented_analysis['objective_segment'].sort_values(by='Segment CTR', ascending=False), use_container_width=True)
+
+            st.divider()
+            st.subheader("📊 Cohort Performance Graphs")
+            
+            col_g1, col_g2 = st.columns(2)
+            with col_g1:
+                if 'device_vs_conversion_rate' in graph_data:
+                    st.plotly_chart(
+                        create_bar_chart(
+                            graph_data['device_vs_conversion_rate'],
+                            x_label="Device",
+                            y_label="Conversion Rate (%)",
+                            title="Conversion Rate by Device Type"
+                        ),
+                        use_container_width=True
+                    )
+            with col_g2:
+                if 'gender_vs_ctr' in graph_data:
+                    st.plotly_chart(
+                        create_bar_chart(
+                            graph_data['gender_vs_ctr'],
+                            x_label="Gender",
+                            y_label="CTR (%)",
+                            title="CTR by Gender Cohort"
+                        ),
+                        use_container_width=True
+                    )
+
+            col_g3, col_g4 = st.columns(2)
+            with col_g3:
+                if 'age_group_vs_ctr' in graph_data:
+                    st.plotly_chart(
+                        create_bar_chart(
+                            graph_data['age_group_vs_ctr'],
+                            x_label="Age Group",
+                            y_label="CTR (%)",
+                            title="CTR by Age Group Cohort"
+                        ),
+                        use_container_width=True
+                    )
+            with col_g4:
+                if 'spend_distribution_by_objective' in graph_data:
+                    st.plotly_chart(
+                        create_pie_chart(
+                            graph_data['spend_distribution_by_objective'],
+                            title="Spend Distribution by Campaign Objective",
+                            name_label="Objective"
+                        ),
+                        use_container_width=True
+                    )
+
+        # --- TAB 3: ACTIONABLE ADVICE ---
+        with tab_recommendations:
+            st.subheader("💡 Strategic Recommendations & Interventions")
+
+            col_rec1, col_rec2 = st.columns(2)
+            with col_rec1:
+                with st.container(border=True):
+                    st.markdown("### 💰 Budget Reallocation")
+                    st.write("Increase budget allocations for these highly effective, cost-efficient campaigns:")
+                    if recommendations['Budget Reallocation']:
+                        st.dataframe(pd.DataFrame(recommendations['Budget Reallocation']).T, use_container_width=True)
+                    else:
+                        st.write("No campaigns identified for budget reallocation currently.")
+
+            with col_rec2:
+                with st.container(border=True):
+                    st.markdown("### ⚠️ Spend Optimization")
+                    st.write("Reduce budgets or refine targeting on these high-spend, low-conversion campaigns:")
+                    if recommendations['Reduce Spend']:
+                        st.dataframe(pd.DataFrame(recommendations['Reduce Spend']).T, use_container_width=True)
+                    else:
+                        st.write("No campaigns identified for spend reduction currently.")
+
+            col_rec3, col_rec4 = st.columns(2)
+            with col_rec3:
+                with st.container(border=True):
+                    st.markdown("### 🎨 Creative Optimization")
+                    st.write("These campaigns have below-average CTRs. Refresh ad creatives or copy text:")
+                    if recommendations['Creative Optimization']:
+                        st.dataframe(pd.DataFrame(recommendations['Creative Optimization']).T, use_container_width=True)
+                    else:
+                        st.write("No campaigns require creative updates currently.")
+
+            with col_rec4:
+                with st.container(border=True):
+                    st.markdown("### 🕸️ Landing Page Optimization")
+                    st.write("High interest (CTR) but low conversions. Improve landing page experience:")
+                    if recommendations['Landing Page Optimization']:
+                        st.dataframe(pd.DataFrame(recommendations['Landing Page Optimization']).T, use_container_width=True)
+                    else:
+                        st.write("No landing page bottlenecks detected currently.")
+
+            st.subheader("🎯 Top Performing Cohorts to Target")
+            with st.container(border=True):
+                col_tr1, col_tr2, col_tr3, col_tr4 = st.columns(4)
+                with col_tr1:
+                    st.markdown("#### Gender Cohort")
+                    st.write(recommendations['Gender'])
+                with col_tr2:
+                    st.markdown("#### Age Group")
+                    st.write(recommendations['Age'])
+                with col_tr3:
+                    st.markdown("#### Device Type")
+                    st.write(recommendations['Device'])
+                with col_tr4:
+                    st.markdown("#### Objective")
+                    st.write(recommendations['Campaign'])
+
+        # --- TAB 4: AI CONSULTANT ---
+        with tab_ai:
+            st.subheader("🤖 Ask Your Campaign AI Consultant")
+            st.write("Inquire about custom segments, correlations, or request copy suggestions based on your data:")
+            
+            prompt = st.text_area("Question/Prompt:", placeholder="Which target audience segment is performing best, and what should we optimize next?", height=120)
+            if st.button("Consult AI Assistant", type="primary"):
+                if prompt.strip():
+                    with st.spinner("AI is evaluating campaign metrics..."):
+                        try:
+                            ai_response = generate_ai_response(prompt, ai_summary)
+                            st.markdown("### 🤖 Consultant Response:")
+                            st.write(ai_response)
+                        except Exception as e:
+                            st.error(f"AI generation failed: {e}")
+                else:
+                    st.warning("Please enter a question or query.")
+
+        # --- TAB 5: DIAGNOSTICS & AUDIT ---
+        with tab_audit:
+            st.subheader("🚨 Business Logic & Data Discrepancy Audits")
+
+            # Duplicate row reports
+            st.markdown("#### Duplicates Inspection")
+            if validation_report['duplicates']['duplicate_row_count'] > 0:
+                st.warning(f"Found {validation_report['duplicates']['duplicate_row_count']} completely identical rows.")
+                st.write(validation_report['duplicates']['duplicate_row_indexes'])
             else:
-                st.write("No campaigns match high performance criteria.")
+                st.success("No duplicate rows found.")
 
-        with st.expander("View Underperforming Campaigns (Above Avg Spend & Below Avg CVR)"):
-            if under_perf:
-                st.dataframe(pd.DataFrame(under_perf).T)
-            else:
-                st.write("No campaigns match underperformance criteria.")
+            # Missing value reports
+            st.markdown("#### Missing Field Inspection")
+            with st.expander("Inspect Missing Value Densities"):
+                st.write(validation_report['missing'])
 
-        with st.expander("View Low CTR Campaigns (Below Average CTR)"):
-            if low_ctr_perf:
-                st.dataframe(pd.DataFrame(low_ctr_perf).T)
-            else:
-                st.write("No campaigns match low CTR criteria.")
-
-        st.divider()
-
-        # Segmented Analysis
-        st.title("🧩 Cohort Segmentation Analysis")
-        
-        with st.expander("View Age Segment Analysis"):
-            if not segmented_analysis['age_segment'].empty:
-                st.dataframe(segmented_analysis['age_segment'].sort_values(by='Segment CTR', ascending=False))
-        
-        with st.expander("View Gender Segment Analysis"):
-            if not segmented_analysis['gender_segment'].empty:
-                st.dataframe(segmented_analysis['gender_segment'].sort_values(by='Segment CTR', ascending=False))
-
-        with st.expander("View Device Segment Analysis"):
-            if not segmented_analysis['device_segment'].empty:
-                st.dataframe(segmented_analysis['device_segment'].sort_values(by='Segment CTR', ascending=False))
-
-        with st.expander("View Objective Segment Analysis"):
-            if not segmented_analysis['objective_segment'].empty:
-                st.dataframe(segmented_analysis['objective_segment'].sort_values(by='Segment CTR', ascending=False))
-
-        st.divider()
-
-        # Anomalies
-        with st.container(border=True):
-            st.title("🚨 Business Rule Anomalies")
+            # Business anomalies
+            st.markdown("#### Logical Anomalies Detected")
             anom_found = False
             for anom_type, details in anomaly_insights.items():
                 if details:
                     anom_found = True
                     with st.expander(anom_type):
-                        st.dataframe(pd.DataFrame(details).T)
+                        st.dataframe(pd.DataFrame(details).T, use_container_width=True)
             if not anom_found:
-                st.success("No business rule anomalies detected in this dataset.")
+                st.success("No campaign-level logical anomalies detected in cleaned dataset.")
 
-        st.divider()
+            st.markdown("#### Detailed Diagnostic Pipeline Logs")
+            with st.expander("Open Validation Pipeline Outputs"):
+                st.write(validation_report)
 
-        # Recommendations
-        st.title("💡 Actionable Recommendations")
-        
-        with st.container(border=True):
-            st.header("Budget Reallocation")
-            st.write("Consider increasing budget allocation to these high-performing campaigns:")
-            if recommendations['Budget Reallocation']:
-                st.dataframe(pd.DataFrame(recommendations['Budget Reallocation']).T)
-            else:
-                st.write("Insufficient data for budget reallocation recommendations.")
-
-        with st.container(border=True):
-            st.header("Spend Optimization")
-            st.write("Consider reducing budgets or refining targeting for these underperforming high-spend campaigns:")
-            if recommendations['Reduce Spend']:
-                st.dataframe(pd.DataFrame(recommendations['Reduce Spend']).T)
-            else:
-                st.write("Insufficient data for spend reduction recommendations.")
-
-        with st.container(border=True):
-            st.header("Creative Optimization")
-            st.write("These campaigns have below-average CTRs. Consider testing new copy, creatives, or formats:")
-            if recommendations['Creative Optimization']:
-                st.dataframe(pd.DataFrame(recommendations['Creative Optimization']).T)
-            else:
-                st.write("Insufficient data for creative optimization recommendations.")
-
-        with st.container(border=True):
-            st.header("Landing Page Optimization")
-            st.write("These campaigns have high CTRs but low conversion rates, indicating a drop-off on landing pages:")
-            if recommendations['Landing Page Optimization']:
-                st.dataframe(pd.DataFrame(recommendations['Landing Page Optimization']).T)
-            else:
-                st.write("Insufficient data for landing page optimization recommendations.")
-
-        with st.container(border=True):
-            st.header("Targeting Recommendations")
-            col_t1, col_t2 = st.columns(2)
-            with col_t1:
-                st.subheader("Gender cohort")
-                st.dataframe(recommendations['Gender'])
-                st.subheader("Age group cohort")
-                st.dataframe(recommendations['Age'])
-            with col_t2:
-                st.subheader("Device cohort")
-                st.dataframe(recommendations['Device'])
-                st.subheader("Campaign Objective cohort")
-                st.dataframe(recommendations['Campaign'])
-
-        st.divider()
-
-        # Visualizations
-        st.title("📉 Performance Visualizations")
-
-        if 'campaign_name_vs_spend' in graph_data:
-            st.plotly_chart(
-                create_bar_chart(
-                    graph_data['campaign_name_vs_spend'],
-                    x_label="Campaign Name",
-                    y_label="Total Spend (INR)",
-                    title="Campaign Name vs Spend"
-                ),
-                use_container_width=True
-            )
-
-        if 'campaign_name_vs_conversion_rate' in graph_data:
-            st.plotly_chart(
-                create_bar_chart(
-                    graph_data['campaign_name_vs_conversion_rate'],
-                    x_label="Campaign Name",
-                    y_label="Conversion Rate (%)",
-                    title="Campaign Name vs Conversion Rate"
-                ),
-                use_container_width=True
-            )
-
-        if 'device_vs_conversion_rate' in graph_data:
-            st.plotly_chart(
-                create_bar_chart(
-                    graph_data['device_vs_conversion_rate'],
-                    x_label="Device",
-                    y_label="Conversion Rate (%)",
-                    title="Device vs Conversion Rate"
-                ),
-                use_container_width=True
-            )
-
-        if 'spend_vs_conversions' in graph_data:
-            st.plotly_chart(
-                create_scatter_chart(
-                    graph_data['spend_vs_conversions'],
-                    x_column="spend_inr",
-                    y_column="conversions",
-                    title="Spend vs Conversions Scatter Analysis",
-                    x_label="Spend (INR)",
-                    y_label="Conversions",
-                    size_column="conversions",
-                    color_column="conversions"
-                ),
-                use_container_width=True
-            )
-
-        # Advanced Visualizations
-        with st.expander("Advanced Analytics Visualizations"):
-            if 'campaign_name_vs_ctr' in graph_data:
-                st.plotly_chart(
-                    create_bar_chart(
-                        graph_data['campaign_name_vs_ctr'],
-                        x_label="Campaign Name",
-                        y_label="CTR (%)",
-                        title="Campaign Name vs CTR"
-                    ),
-                    use_container_width=True
-                )
-
-            if 'gender_vs_ctr' in graph_data:
-                st.plotly_chart(
-                    create_bar_chart(
-                        graph_data['gender_vs_ctr'],
-                        x_label="Gender",
-                        y_label="CTR (%)",
-                        title="Gender vs CTR"
-                    ),
-                    use_container_width=True
-                )
-
-            if 'gender_vs_conversion_rate' in graph_data:
-                st.plotly_chart(
-                    create_bar_chart(
-                        graph_data['gender_vs_conversion_rate'],
-                        x_label="Gender",
-                        y_label="Conversion Rate (%)",
-                        title="Gender vs Conversion Rate"
-                    ),
-                    use_container_width=True
-                )
-
-            if 'age_group_vs_ctr' in graph_data:
-                st.plotly_chart(
-                    create_bar_chart(
-                        graph_data['age_group_vs_ctr'],
-                        x_label="Age Group",
-                        y_label="CTR (%)",
-                        title="Age Group vs CTR"
-                    ),
-                    use_container_width=True
-                )
-
-            if 'age_group_vs_conversion_rate' in graph_data:
-                st.plotly_chart(
-                    create_bar_chart(
-                        graph_data['age_group_vs_conversion_rate'],
-                        x_label="Age Group",
-                        y_label="Conversion Rate (%)",
-                        title="Age Group vs Conversion Rate"
-                    ),
-                    use_container_width=True
-                )
-
-            if 'spend_over_time' in graph_data:
-                st.plotly_chart(
-                    create_line_chart(
-                        graph_data['spend_over_time'],
-                        x_label="Date",
-                        y_label="Total Spend (INR)",
-                        title="Spend Over Time"
-                    ),
-                    use_container_width=True
-                )
-
-            if 'clicks_over_time' in graph_data:
-                st.plotly_chart(
-                    create_line_chart(
-                        graph_data['clicks_over_time'],
-                        x_label="Date",
-                        y_label="Total Clicks",
-                        title="Clicks Over Time"
-                    ),
-                    use_container_width=True
-                )
-
-            if 'conversions_over_time' in graph_data:
-                st.plotly_chart(
-                    create_line_chart(
-                        graph_data['conversions_over_time'],
-                        x_label="Date",
-                        y_label="Total Conversions",
-                        title="Conversions Over Time"
-                    ),
-                    use_container_width=True
-                )
-
-            if 'ctr_over_time' in graph_data:
-                st.plotly_chart(
-                    create_line_chart(
-                        graph_data['ctr_over_time'],
-                        x_label="Date",
-                        y_label="CTR (%)",
-                        title="CTR Over Time"
-                    ),
-                    use_container_width=True
-                )
-
-            if 'spend_distribution_by_objective' in graph_data:
-                st.plotly_chart(
-                    create_pie_chart(
-                        graph_data['spend_distribution_by_objective'],
-                        title="Spend Distribution by Objective",
-                        name_label="Objective"
-                    ),
-                    use_container_width=True
-                )
-
-            if 'conversions_distribution_by_objective' in graph_data:
-                st.plotly_chart(
-                    create_pie_chart(
-                        graph_data['conversions_distribution_by_objective'],
-                        title="Conversions Distribution by Objective",
-                        name_label="Objective"
-                    ),
-                    use_container_width=True
-                )
-
-            if 'spend_vs_ctr' in graph_data:
-                st.plotly_chart(
-                    create_scatter_chart(
-                        graph_data['spend_vs_ctr'],
-                        x_column="spend_inr",
-                        y_column="ctr_pct",
-                        title="Spend vs CTR Scatter Analysis",
-                        x_label="Spend (INR)",
-                        y_label="CTR (%)",
-                        size_column="spend_inr",
-                        color_column="ctr_pct"
-                    ),
-                    use_container_width=True
-                )
-
-            if 'clicks_vs_conversions' in graph_data:
-                st.plotly_chart(
-                    create_scatter_chart(
-                        graph_data['clicks_vs_conversions'],
-                        x_column="clicks",
-                        y_column="conversions",
-                        title="Clicks vs Conversions Scatter Analysis",
-                        x_label="Total Clicks",
-                        y_label="Total Conversions",
-                        size_column="conversions",
-                        color_column="conversions"
-                    ),
-                    use_container_width=True
-                )
-
-            if 'impressions_vs_clicks' in graph_data:
-                st.plotly_chart(
-                    create_scatter_chart(
-                        graph_data['impressions_vs_clicks'],
-                        x_column="impressions",
-                        y_column="clicks",
-                        title="Impressions vs Clicks Scatter Analysis",
-                        x_label="Total Impressions",
-                        y_label="Total Clicks",
-                        size_column="clicks",
-                        color_column="clicks"
-                    ),
-                    use_container_width=True
-                )
+            st.divider()
+            
+            # Rankings
+            st.subheader("📊 Full Cohort Rankings Data")
+            with st.expander("High Performing Campaigns"):
+                st.dataframe(pd.DataFrame(high_perf).T, use_container_width=True)
+            with st.expander("Underperforming Campaigns"):
+                st.dataframe(pd.DataFrame(under_perf).T, use_container_width=True)
+            with st.expander("Low CTR Campaigns"):
+                st.dataframe(pd.DataFrame(low_ctr_perf).T, use_container_width=True)
 else:
-    st.header("Please Upload a File to Get Started")
+    # App landing info when no file is uploaded
+    st.info("👋 Upload a campaign CSV file in the selector widget to start the analysis pipeline.")
+    
+    with st.container(border=True):
+        st.subheader("💡 Dashboard Features Include:")
+        col_landing1, col_landing2, col_landing3 = st.columns(3)
+        with col_landing1:
+            st.markdown("#### 1. Mapping & Validation")
+            st.write("Dynamic column mapping helps ingest any layout format, running structural audits for clean records.")
+        with col_landing2:
+            st.markdown("#### 2. Advanced Segmentations")
+            st.write("Aggregates campaign performances by Age Group, Gender, Device, and Objectives automatically.")
+        with col_landing3:
+            st.markdown("#### 3. AI Insights")
+            st.write("Leverages Google Gemini models to answer business questions instantly.")

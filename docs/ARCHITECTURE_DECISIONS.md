@@ -71,3 +71,38 @@ Streamlit secrets coupling makes the code dependent on Streamlit runtime, breaki
 **Scalability Impact**: Positive. Supports standard production environments.  
 **Maintainability Impact**: Positive. Decoupled configurations.  
 **Testing Impact**: Easy mocking of keys in unit test environments.
+
+---
+
+## Decision 3: Decoupled Advanced Validation Layer
+
+**Context**:  
+The legacy codebase performed basic numeric filtering inside the cleaning module. There was no distinct missing value logic, duplicate row checks, or derived metric validation.
+
+**Problem**:  
+- Violations of the Single Responsibility Principle: the cleaning phase modified data under silent logical rules, which hid errors from the user rather than validating them.
+- User could not compare discrepancies in their uploaded calculations.
+
+**Decision Taken**:  
+Separated all validation layers into individual sub-modules (`validation/missing_value_validator.py`, `validation/duplicate_row_validator.py`, `validation/business_logic_validator.py`, `validation/derived_metric_validator.py`). Removed business logic filters from `cleaning/data_cleaner.py`. Introduced a derived metric comparison selection interface in the app UI.
+
+**Reason**:  
+Provides structural error diagnostics to the user, preserves the integrity of the raw dataset during the mapping phase, and enforces strict separation of concerns.
+
+**Alternative Approaches Considered**:  
+Keep logical row drops inside `clean_data.py` and output warnings there.
+
+**Why Rejection**:  
+Violates the handbook design principle that cleaning should never validate business rules or generate warnings.
+
+**Advantages**:  
+- Clear diagnostic warnings for users.
+- Cleaners are pure and simple.
+- Discrepancy selection gives user ownership of metric sources.
+
+**Disadvantages**:  
+- Extra validation computations before cleaning.
+
+**Scalability Impact**: Highly positive. New business rules can be added as validation metrics without altering cleaner logic.  
+**Maintainability Impact**: Positive. Clear debugging boundaries for bad data.  
+**Testing Impact**: Unit tests can run checks on validators directly.

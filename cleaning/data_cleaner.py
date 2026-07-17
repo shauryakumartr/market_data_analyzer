@@ -47,42 +47,6 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     if duplicate_rows_removed > 0:
         logger.warning("Removed %d duplicate rows during cleaning", duplicate_rows_removed)
 
-    # Filter out future dates
-    if 'date' in cleaned_df.columns:
-        today = datetime.today().date()
-        future_date_filter = cleaned_df['date'].apply(lambda x: pd.to_datetime(x).date() if pd.notna(x) else None) > today
-        future_rows_count = future_date_filter.sum()
-        if future_rows_count > 0:
-            logger.warning("Filtering out %d rows with future dates", future_rows_count)
-            cleaned_df = cleaned_df[~future_date_filter]
-
-    # Filter out logically impossible numeric values
-    numeric_checks = []
-    
-    # 1. Negative values check
-    for col in ['spend_inr', 'budget_inr', 'clicks', 'impressions', 'conversions', 'reach']:
-        if col in cleaned_df.columns:
-            numeric_checks.append(cleaned_df[col] < 0)
-
-    # 2. Clicks > Impressions
-    if 'clicks' in cleaned_df.columns and 'impressions' in cleaned_df.columns:
-        numeric_checks.append(cleaned_df['clicks'] > cleaned_df['impressions'])
-
-    # 3. Conversions > Clicks
-    if 'conversions' in cleaned_df.columns and 'clicks' in cleaned_df.columns:
-        numeric_checks.append(cleaned_df['conversions'] > cleaned_df['clicks'])
-
-    # 4. Reach > Impressions
-    if 'reach' in cleaned_df.columns and 'impressions' in cleaned_df.columns:
-        numeric_checks.append(cleaned_df['reach'] > cleaned_df['impressions'])
-
-    if numeric_checks:
-        impossible_filter = pd.concat(numeric_checks, axis=1).any(axis=1)
-        impossible_rows_count = impossible_filter.sum()
-        if impossible_rows_count > 0:
-            logger.warning("Filtering out %d rows with impossible numeric relationships", impossible_rows_count)
-            cleaned_df = cleaned_df[~impossible_filter]
-
     # Fill missing values
     if 'campaign_name' in cleaned_df.columns:
         cleaned_df['campaign_name'] = cleaned_df['campaign_name'].fillna('Unknown')

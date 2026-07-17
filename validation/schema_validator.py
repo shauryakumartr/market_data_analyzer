@@ -37,7 +37,7 @@ def validate_schema(df: pd.DataFrame) -> dict:
     if missing_optional:
         logger.warning("Missing optional columns found: %s", missing_optional)
 
-    is_valid = len(missing_mandatory) == 0
+    is_valid = (len(missing_mandatory) == 0)
 
     return {
         'available_mandatory': available_mandatory,

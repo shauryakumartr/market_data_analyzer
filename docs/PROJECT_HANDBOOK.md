@@ -35,6 +35,10 @@ project/
 │   ├── schema_validator.py
 │   ├── structural_validator.py
 │   ├── duplicate_validator.py
+│   ├── missing_value_validator.py
+│   ├── duplicate_row_validator.py
+│   ├── business_logic_validator.py
+│   ├── derived_metric_validator.py
 │   └── validator.py
 ├── analytics/               # Metrics, KPI, segmentation, and anomaly detection
 │   ├── __init__.py
@@ -82,7 +86,7 @@ project/
 - Under no circumstances does this module identify business anomalies.
 
 ### Validation (`validation/`)
-- Verifies system inputs: Schema presence, minimum rows, null-value checks, and collision detection for mappings.
+- Verifies system inputs: Schema presence, structural validity, row count checks, collision detection for mappings, missing values assessment, duplicate row checks, business rule validation, and derived metrics discrepancies.
 
 ### Analytics (`analytics/`)
 - Calculates raw metrics: KPI aggregations, segment cohorts, graph dimensions, performance ranks, and business rule anomaly detection.
