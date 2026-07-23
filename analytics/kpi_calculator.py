@@ -33,6 +33,7 @@ def calculate_basic_kpis(df: pd.DataFrame) -> dict[str, float]:
     logger.info("Calculating basic KPIs")
     
     total_spend = float(df['spend_inr'].sum()) if 'spend_inr' in df.columns else 0.0
+    total_budget=float(df['budget_inr'].sum()) if 'budget_inr' in df.columns else 0.0
     total_impressions = float(df['impressions'].sum()) if 'impressions' in df.columns else 0.0
     total_clicks = float(df['clicks'].sum()) if 'clicks' in df.columns else 0.0
     total_conversions = float(df['conversions'].sum()) if 'conversions' in df.columns else 0.0
@@ -42,9 +43,9 @@ def calculate_basic_kpis(df: pd.DataFrame) -> dict[str, float]:
     avg_cpc = total_spend / total_clicks if total_clicks > 0 else 0.0
     avg_cpm = (total_spend / total_impressions) * 1000.0 if total_impressions > 0 else 0.0
     avg_conversion_rate = (total_conversions / total_clicks) * 100.0 if total_clicks > 0 else 0.0
-
     kpis = {
         'total_spend': total_spend,
+        'total_budget' : total_budget,
         'total_impressions': total_impressions,
         'total_clicks': total_clicks,
         'total_conversions': total_conversions,
