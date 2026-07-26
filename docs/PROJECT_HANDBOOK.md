@@ -14,7 +14,7 @@ This is a modular, production-quality AI Marketing Analytics Platform designed t
 The project has been migrated from a flat directory structure into well-defined, highly cohesive packages:
 
 ```
-project/
+market_data_analyzer/
 ├── assets/                  # Sample datasets and resources
 │   └── sample_data/
 ├── config/                  # Configuration settings and constant mappings
@@ -27,7 +27,7 @@ project/
 ├── mapping/                 # Canonical column header mapping
 │   ├── __init__.py
 │   └── column_mapper.py
-├── cleaning/                # Standardization and type management (no anomalies)
+├── cleaning/                # Standardization and type coercion (pure cleaning)
 │   ├── __init__.py
 │   └── data_cleaner.py
 ├── validation/              # Strict schema and validation rules
@@ -55,15 +55,16 @@ project/
 ├── ai/                      # AI integration with Google Gemini
 │   ├── __init__.py
 │   └── ai_engine.py
-├── visualization/           # Plotly chart factories
+├── visualization/           # Plotly chart factories & dark theme layouts
 │   ├── __init__.py
 │   └── charts.py
-├── docs/                    # System documentation
+├── docs/                    # System documentation & architectural logs
 │   ├── PROJECT_HANDBOOK.md
 │   └── ARCHITECTURE_DECISIONS.md
-├── app.py                   # Streamlit Orchestrator UI (Thin Controller)
+├── app.py                   # Streamlit Orchestrator UI (Executive Controller)
 ├── .gitignore
 ├── .env.example
+├── README.txt               # Plain text project guide & documentation
 └── requirements.txt
 ```
 

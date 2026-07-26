@@ -27,6 +27,7 @@ def validate_duplicate_rows(df: pd.DataFrame) -> dict:
     # Identify completely duplicated rows (excluding first occurrence)
     duplicates_mask = df.duplicated(keep='first')
     duplicate_indexes = df[duplicates_mask].index.tolist()
+    duplicate_rows_df = df[duplicates_mask]
     duplicate_count = len(duplicate_indexes)
 
     if duplicate_count > 0:
@@ -35,5 +36,6 @@ def validate_duplicate_rows(df: pd.DataFrame) -> dict:
     return {
         'duplicate_row_count': duplicate_count,
         'duplicate_row_indexes': duplicate_indexes,
+        'duplicate_rows_data': duplicate_rows_df,
         'is_valid': True
     }

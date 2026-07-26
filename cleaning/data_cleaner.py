@@ -36,9 +36,9 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     # Strip column names
     cleaned_df.columns = cleaned_df.columns.str.strip()
 
-    # Parse date column
+    # Parse date column with flexible fallback parsing
     if 'date' in cleaned_df.columns:
-        cleaned_df['date'] = pd.to_datetime(cleaned_df['date'], format='%Y-%m-%d', errors='coerce').dt.date
+        cleaned_df['date'] = pd.to_datetime(cleaned_df['date'], errors='coerce').dt.date
 
     # Drop duplicate rows
     row_count_before = len(cleaned_df)
@@ -47,15 +47,18 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     if duplicate_rows_removed > 0:
         logger.warning("Removed %d duplicate rows during cleaning", duplicate_rows_removed)
 
-    # Fill missing values
+    # Clean numeric string columns and fill missing values
+    for col in ['spend_inr', 'impressions', 'budget_inr', 'clicks', 'conversions', 'reach', 'ctr_pct', 'cpc_inr', 'cpm_inr', 'conversion_rate_pct']:
+        if col in cleaned_df.columns:
+            # If string with currency or commas, clean them
+            if cleaned_df[col].dtype == 'object':
+                cleaned_df[col] = cleaned_df[col].astype(str).str.replace(r'[₹$,]', '', regex=True).str.strip()
+            cleaned_df[col] = pd.to_numeric(cleaned_df[col], errors='coerce').fillna(0.0)
+
     if 'campaign_name' in cleaned_df.columns:
         cleaned_df['campaign_name'] = cleaned_df['campaign_name'].fillna('Unknown')
-    
-    for col in ['spend_inr', 'impressions', 'budget_inr', 'clicks', 'conversions', 'reach']:
-        if col in cleaned_df.columns:
-            cleaned_df[col] = cleaned_df[col].fillna(0)
 
-    # Standardize data types
+    # Standardize integer data types to float64
     for col in cleaned_df.columns:
         if cleaned_df[col].dtype == "int64":
             cleaned_df[col] = cleaned_df[col].astype("float64")

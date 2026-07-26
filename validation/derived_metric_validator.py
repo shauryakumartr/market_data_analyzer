@@ -34,47 +34,49 @@ def validate_derived_metrics(df: pd.DataFrame, relative_tolerance: float = 0.01)
 
     # 1. CTR Comparison
     if 'ctr_pct' in df.columns and 'clicks' in df.columns and 'impressions' in df.columns:
-        # Determine if user's ctr_pct is normalized (0-1) or percentage (0-100)
-        max_ctr = df['ctr_pct'].max()
-        user_factor = 100.0 if max_ctr <= 1.0 else 1.0
+        ctr_series = pd.to_numeric(df['ctr_pct'], errors='coerce')
+        clicks_series = pd.to_numeric(df['clicks'], errors='coerce').fillna(0)
+        impressions_series = pd.to_numeric(df['impressions'], errors='coerce').fillna(0)
+        
+        max_ctr = ctr_series.max() if not ctr_series.empty else 0.0
+        user_factor = 100.0 if (pd.notna(max_ctr) and max_ctr <= 1.0) else 1.0
         
         for idx, row in df.iterrows():
-            clicks = row['clicks']
-            impressions = row['impressions']
-            uploaded_ctr = row['ctr_pct'] * user_factor if pd.notna(row['ctr_pct']) else 0.0
+            clicks = float(clicks_series.loc[idx]) if idx in clicks_series else 0.0
+            impressions = float(impressions_series.loc[idx]) if idx in impressions_series else 0.0
+            raw_ctr = ctr_series.loc[idx] if idx in ctr_series else 0.0
+            uploaded_ctr = float(raw_ctr) * user_factor if pd.notna(raw_ctr) else 0.0
             
             derived_ctr = (clicks / impressions * 100.0) if impressions > 0 else 0.0
             
-            # Check relative and absolute difference
             abs_diff = abs(uploaded_ctr - derived_ctr)
-            if derived_ctr > 0:
-                rel_diff = abs_diff / derived_ctr
-            else:
-                rel_diff = abs_diff
+            rel_diff = (abs_diff / derived_ctr) if derived_ctr > 0 else abs_diff
                 
             if abs_diff > 0.05 and rel_diff > relative_tolerance:
                 discrepancies['ctr'].append({
                     'row_index': int(idx),
                     'campaign_name': row.get('campaign_name', 'Unknown'),
-                    'uploaded': round(row['ctr_pct'], 4),
+                    'uploaded': round(float(raw_ctr), 4) if pd.notna(raw_ctr) else 0.0,
                     'derived': round(derived_ctr / user_factor, 4),
                     'diff_pct': round(rel_diff * 100, 2)
                 })
 
     # 2. CPC Comparison
     if 'cpc_inr' in df.columns and 'spend_inr' in df.columns and 'clicks' in df.columns:
+        cpc_series = pd.to_numeric(df['cpc_inr'], errors='coerce')
+        spend_series = pd.to_numeric(df['spend_inr'], errors='coerce').fillna(0)
+        clicks_series = pd.to_numeric(df['clicks'], errors='coerce').fillna(0)
+
         for idx, row in df.iterrows():
-            clicks = row['clicks']
-            spend = row['spend_inr']
-            uploaded_cpc = row['cpc_inr'] if pd.notna(row['cpc_inr']) else 0.0
+            clicks = float(clicks_series.loc[idx]) if idx in clicks_series else 0.0
+            spend = float(spend_series.loc[idx]) if idx in spend_series else 0.0
+            raw_cpc = cpc_series.loc[idx] if idx in cpc_series else 0.0
+            uploaded_cpc = float(raw_cpc) if pd.notna(raw_cpc) else 0.0
             
             derived_cpc = (spend / clicks) if clicks > 0 else 0.0
             
             abs_diff = abs(uploaded_cpc - derived_cpc)
-            if derived_cpc > 0:
-                rel_diff = abs_diff / derived_cpc
-            else:
-                rel_diff = abs_diff
+            rel_diff = (abs_diff / derived_cpc) if derived_cpc > 0 else abs_diff
                 
             if abs_diff > 1.0 and rel_diff > relative_tolerance:
                 discrepancies['cpc'].append({
@@ -87,27 +89,29 @@ def validate_derived_metrics(df: pd.DataFrame, relative_tolerance: float = 0.01)
 
     # 3. Conversion Rate Comparison
     if 'conversion_rate_pct' in df.columns and 'conversions' in df.columns and 'clicks' in df.columns:
-        max_cvr = df['conversion_rate_pct'].max()
-        user_factor = 100.0 if max_cvr <= 1.0 else 1.0
+        cvr_series = pd.to_numeric(df['conversion_rate_pct'], errors='coerce')
+        conv_series = pd.to_numeric(df['conversions'], errors='coerce').fillna(0)
+        clicks_series = pd.to_numeric(df['clicks'], errors='coerce').fillna(0)
+
+        max_cvr = cvr_series.max() if not cvr_series.empty else 0.0
+        user_factor = 100.0 if (pd.notna(max_cvr) and max_cvr <= 1.0) else 1.0
 
         for idx, row in df.iterrows():
-            clicks = row['clicks']
-            conversions = row['conversions']
-            uploaded_cvr = row['conversion_rate_pct'] * user_factor if pd.notna(row['conversion_rate_pct']) else 0.0
+            clicks = float(clicks_series.loc[idx]) if idx in clicks_series else 0.0
+            conversions = float(conv_series.loc[idx]) if idx in conv_series else 0.0
+            raw_cvr = cvr_series.loc[idx] if idx in cvr_series else 0.0
+            uploaded_cvr = float(raw_cvr) * user_factor if pd.notna(raw_cvr) else 0.0
             
             derived_cvr = (conversions / clicks * 100.0) if clicks > 0 else 0.0
             
             abs_diff = abs(uploaded_cvr - derived_cvr)
-            if derived_cvr > 0:
-                rel_diff = abs_diff / derived_cvr
-            else:
-                rel_diff = abs_diff
+            rel_diff = (abs_diff / derived_cvr) if derived_cvr > 0 else abs_diff
                 
             if abs_diff > 0.05 and rel_diff > relative_tolerance:
                 discrepancies['cvr'].append({
                     'row_index': int(idx),
                     'campaign_name': row.get('campaign_name', 'Unknown'),
-                    'uploaded': round(row['conversion_rate_pct'], 4),
+                    'uploaded': round(float(raw_cvr), 4) if pd.notna(raw_cvr) else 0.0,
                     'derived': round(derived_cvr / user_factor, 4),
                     'diff_pct': round(rel_diff * 100, 2)
                 })

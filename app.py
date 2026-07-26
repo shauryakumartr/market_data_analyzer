@@ -13,7 +13,7 @@ from cleaning.data_cleaner import clean_data
 from validation.duplicate_validator import validate_no_duplicate_mappings
 from validation.validator import run_validation
 from analytics.kpi_calculator import calculate_basic_kpis
-from analytics.performance import compare_performance
+from analytics.campaign_performance import compare_performance
 from analytics.segmentation import analyze_segments
 from analytics.graph_data import prepare_graph_data
 from analytics.anomaly_detector import detect_anomalies
@@ -41,68 +41,141 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Inject premium custom CSS for styling
+# Inject premium executive custom CSS for styling
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
     
     /* Global Typography & Font Family */
     html, body, [class*="css"] {
-        font-family: 'Outfit', sans-serif;
+        font-family: 'Plus Jakarta Sans', sans-serif;
     }
     
-    /* Top Banner Gradient */
+    /* Main container spacing */
+    .block-container {
+        padding-top: 1.5rem;
+        padding-bottom: 2rem;
+    }
+    
+    /* Top Hero Header Banner */
     .header-banner {
-        background: linear-gradient(135deg, #FF3F6C 0%, #FF6840 50%, #7928CA 100%);
-        padding: 2rem;
-        border-radius: 12px;
+        background: linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #311042 100%);
+        padding: 2.2rem 2rem;
+        border-radius: 16px;
         color: white;
-        text-align: center;
+        text-align: left;
         margin-bottom: 2rem;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+        position: relative;
+        overflow: hidden;
+    }
+    .header-banner::after {
+        content: "";
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(236, 72, 153, 0.2) 0%, rgba(0,0,0,0) 70%);
+        border-radius: 50%;
+        pointer-events: none;
     }
     .header-banner h1 {
-        font-weight: 700;
+        font-weight: 800;
         margin: 0;
-        font-size: 2.5rem;
+        font-size: 2.2rem;
+        letter-spacing: -0.02em;
+        background: linear-gradient(90deg, #FFFFFF 0%, #E2E8F0 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
     }
     .header-banner p {
-        font-weight: 300;
+        font-weight: 400;
         margin-top: 0.5rem;
-        font-size: 1.1rem;
-        opacity: 0.9;
+        margin-bottom: 0;
+        font-size: 1.05rem;
+        color: #94A3B8;
     }
     
-    /* Metrics Styling */
+    /* Executive Metric Cards Styling */
     div[data-testid="stMetric"] {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
-        padding: 1rem;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-        transition: transform 0.2s ease;
+        background: rgba(30, 41, 59, 0.7);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 1.1rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        transition: all 0.25s ease;
     }
     div[data-testid="stMetric"]:hover {
-        transform: translateY(-2px);
-        border-color: #FF3F6C;
+        transform: translateY(-3px);
+        border-color: rgba(99, 102, 241, 0.4);
+        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.15);
+    }
+    div[data-testid="stMetric"] label {
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        color: #94A3B8 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
+        font-size: 1.7rem !important;
+        font-weight: 800 !important;
+        color: #F8FAFC !important;
+    }
+
+    /* Primary Metric Highlights */
+    .metric-primary div[data-testid="stMetric"] {
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(49, 16, 66, 0.4) 100%);
+        border-left: 4px solid #EC4899;
+    }
+    .metric-secondary div[data-testid="stMetric"] {
+        border-left: 4px solid #6366F1;
+    }
+    
+    /* Custom Cards / Containers */
+    .custom-card {
+        background: rgba(30, 41, 59, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+    }
+    .card-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #F8FAFC;
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
     }
     
     /* Tabs Customization */
     button[data-baseweb="tab"] {
-        font-size: 1.1rem;
-        font-weight: 600;
-        padding: 0.5rem 1.5rem;
+        font-size: 1rem !important;
+        font-weight: 600 !important;
+        padding: 0.6rem 1.4rem !important;
+        border-radius: 8px 8px 0 0 !important;
+        color: #94A3B8 !important;
     }
-    
-    /* Box Container Styling */
-    div.stExpander, div.element-container {
-        border-radius: 8px;
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #6366F1 !important;
+        border-bottom-color: #6366F1 !important;
     }
     
     /* Sidebar aesthetics */
     section[data-testid="stSidebar"] {
-        background-color: #0E1117;
-        border-right: 1px solid rgba(255, 255, 255, 0.05);
+        background-color: #0F172A;
+        border-right: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    /* Table styling tweaks */
+    .stDataFrame {
+        border-radius: 10px;
+        overflow: hidden;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -234,7 +307,11 @@ if uploaded_file:
         if validation_report['derived_metrics']['has_discrepancies']:
             st.warning("⚠️ Discrepancies found between uploaded derived metrics and system-calculated values.")
             with st.expander("Inspect Derived Metric Differences"):
-                st.write(validation_report['derived_metrics']['discrepancies'])
+                discrepancies=validation_report['derived_metrics']['discrepancies']
+                for discrepancy in discrepancies:
+                    if discrepancies[discrepancy]:
+                     st.subheader(discrepancy.upper())
+                     st.dataframe(pd.DataFrame(discrepancies[discrepancy]), use_container_width=True)
             metric_choice = st.radio(
                 "Source derived metrics to use for analysis:",
                 options=["Calculated Metrics (Recommended)", "Uploaded Metrics"],
@@ -340,28 +417,37 @@ if uploaded_file:
 
         # --- TAB 1: OVERVIEW DASHBOARD ---
         with tab_overview:
-            st.subheader("📈 Main Key Performance Indicators")
-            col1, col2, col3, col4, col5 = st.columns(5)
-            with col1:
-                st.metric(label="Total Spend", value=f"₹{kpi_summary['Total Spend']:,.2f}")
-            with col2:
-                st.metric(label="Total Impressions", value=f"{int(kpi_summary['Total Impressions']):,}")
-            with col3:
-                st.metric(label="Total Clicks", value=f"{int(kpi_summary['Total Clicks']):,}")
-            with col4:
+            st.markdown("### 📊 Executive Summary & Core KPIs")
+            
+            # Primary Highlight KPIs
+            st.markdown('<div class="metric-primary">', unsafe_allow_html=True)
+            kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
+            with kpi_col1:
+                st.metric(label="Total Ad Spend", value=f"₹{kpi_summary['Total Spend']:,.2f}")
+            with kpi_col2:
                 st.metric(label="Total Conversions", value=f"{int(kpi_summary['Total Conversions']):,}")
-            with col5:
+            with kpi_col3:
                 st.metric(label="Average CTR", value=f"{kpi_summary['Average CTR']}%")
-
-            col6, col7, col8, col9 = st.columns(4)
-            with col6:
-                st.metric(label="Total Reach", value=f"{int(kpi_summary['Total Reach']):,}")
-            with col7:
-                st.metric(label="Average CPC", value=f"₹{kpi_summary['Average CPC']:.2f}")
-            with col8:
-                st.metric(label="Average CPM", value=f"₹{kpi_summary['Average CPM']:.2f}")
-            with col9:
+            with kpi_col4:
                 st.metric(label="Conversion Rate", value=f"{kpi_summary['Conversion Effectiveness']}%")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown("<div style='margin-top: 0.8rem;'></div>", unsafe_allow_html=True)
+
+            # Secondary Operational KPIs
+            st.markdown('<div class="metric-secondary">', unsafe_allow_html=True)
+            kpi_col5, kpi_col6, kpi_col7, kpi_col8, kpi_col9 = st.columns(5)
+            with kpi_col5:
+                st.metric(label="Total Impressions", value=f"{int(kpi_summary['Total Impressions']):,}")
+            with kpi_col6:
+                st.metric(label="Total Clicks", value=f"{int(kpi_summary['Total Clicks']):,}")
+            with kpi_col7:
+                st.metric(label="Total Reach", value=f"{int(kpi_summary['Total Reach']):,}")
+            with kpi_col8:
+                st.metric(label="Average CPC", value=f"₹{kpi_summary['Average CPC']:.2f}")
+            with kpi_col9:
+                st.metric(label="Average CPM", value=f"₹{kpi_summary['Average CPM']:.2f}")
+            st.markdown('</div>', unsafe_allow_html=True)
 
             st.divider()
 
@@ -560,16 +646,16 @@ if uploaded_file:
                 col_tr1, col_tr2, col_tr3, col_tr4 = st.columns(4)
                 with col_tr1:
                     st.markdown("#### Gender Cohort")
-                    st.write(recommendations['Gender'])
+                    st.dataframe(recommendations['Gender'])
                 with col_tr2:
                     st.markdown("#### Age Group")
-                    st.write(recommendations['Age'])
+                    st.dataframe(recommendations['Age'])
                 with col_tr3:
                     st.markdown("#### Device Type")
-                    st.write(recommendations['Device'])
+                    st.dataframe(recommendations['Device'])
                 with col_tr4:
                     st.markdown("#### Objective")
-                    st.write(recommendations['Campaign'])
+                    st.dataframe(recommendations['Campaign'])
 
         # --- TAB 4: AI CONSULTANT ---
         with tab_ai:
@@ -597,14 +683,17 @@ if uploaded_file:
             st.markdown("#### Duplicates Inspection")
             if validation_report['duplicates']['duplicate_row_count'] > 0:
                 st.warning(f"Found {validation_report['duplicates']['duplicate_row_count']} completely identical rows.")
-                st.write(validation_report['duplicates']['duplicate_row_indexes'])
+                if 'duplicate_rows_data' in validation_report['duplicates']:
+                    st.dataframe(validation_report['duplicates']['duplicate_rows_data'], use_container_width=True)
             else:
                 st.success("No duplicate rows found.")
 
             # Missing value reports
             st.markdown("#### Missing Field Inspection")
             with st.expander("Inspect Missing Value Densities"):
-                st.write(validation_report['missing'])
+                for missing in (validation_report['missing']):
+                    if validation_report['missing'][missing] and type(validation_report['missing'][missing]) != bool:
+                        st.dataframe(validation_report['missing'][missing])
 
             # Business anomalies
             st.markdown("#### Logical Anomalies Detected")
@@ -616,10 +705,9 @@ if uploaded_file:
                         st.dataframe(pd.DataFrame(details).T, use_container_width=True)
             if not anom_found:
                 st.success("No campaign-level logical anomalies detected in cleaned dataset.")
-
             st.markdown("#### Detailed Diagnostic Pipeline Logs")
             with st.expander("Open Validation Pipeline Outputs"):
-                st.write(validation_report)
+             st.write(validation_report)
 
             st.divider()
             

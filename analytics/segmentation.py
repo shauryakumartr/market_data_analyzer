@@ -7,7 +7,7 @@ from config.settings import SEGMENT_COLUMNS
 
 logger = logging.getLogger(__name__)
 
-def _aggregate_segment(df: pd.DataFrame, segment_column: str) -> pd.DataFrame:
+def aggregate_segment(df: pd.DataFrame, segment_column: str) -> pd.DataFrame:
     """Aggregate campaign metrics by a segment column.
 
     Parameters
@@ -90,7 +90,7 @@ def analyze_segments(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
 
     for col, result_key in segment_keys.items():
         if col in df.columns:
-            segmented_results[result_key] = _aggregate_segment(df, col)
+            segmented_results[result_key] = aggregate_segment(df, col)
         else:
             logger.warning("Segment column '%s' missing from DataFrame. Skipping.", col)
             segmented_results[result_key] = pd.DataFrame()

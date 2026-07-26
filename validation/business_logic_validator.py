@@ -34,7 +34,9 @@ def validate_business_logic(df: pd.DataFrame) -> dict:
 
     # 1. Impressions vs Reach
     if 'impressions' in df.columns and 'reach' in df.columns:
-        invalid_idx = df[df['impressions'] < df['reach']].index.tolist()
+        imp = pd.to_numeric(df['impressions'], errors='coerce').fillna(0)
+        rch = pd.to_numeric(df['reach'], errors='coerce').fillna(0)
+        invalid_idx = df[imp < rch].index.tolist()
         if invalid_idx:
             report['impressions_less_than_reach'] = invalid_idx
             report['is_valid'] = False
@@ -42,7 +44,9 @@ def validate_business_logic(df: pd.DataFrame) -> dict:
 
     # 2. Clicks vs Impressions
     if 'clicks' in df.columns and 'impressions' in df.columns:
-        invalid_idx = df[df['clicks'] > df['impressions']].index.tolist()
+        clk = pd.to_numeric(df['clicks'], errors='coerce').fillna(0)
+        imp = pd.to_numeric(df['impressions'], errors='coerce').fillna(0)
+        invalid_idx = df[clk > imp].index.tolist()
         if invalid_idx:
             report['clicks_greater_than_impressions'] = invalid_idx
             report['is_valid'] = False
@@ -50,7 +54,9 @@ def validate_business_logic(df: pd.DataFrame) -> dict:
 
     # 3. Conversions vs Clicks
     if 'conversions' in df.columns and 'clicks' in df.columns:
-        invalid_idx = df[df['conversions'] > df['clicks']].index.tolist()
+        cnv = pd.to_numeric(df['conversions'], errors='coerce').fillna(0)
+        clk = pd.to_numeric(df['clicks'], errors='coerce').fillna(0)
+        invalid_idx = df[cnv > clk].index.tolist()
         if invalid_idx:
             report['conversions_greater_than_clicks'] = invalid_idx
             report['is_valid'] = False
@@ -58,7 +64,9 @@ def validate_business_logic(df: pd.DataFrame) -> dict:
 
     # 4. Landing Page Views vs Clicks
     if 'landing_page_views' in df.columns and 'clicks' in df.columns:
-        invalid_idx = df[df['landing_page_views'] > df['clicks']].index.tolist()
+        lpv = pd.to_numeric(df['landing_page_views'], errors='coerce').fillna(0)
+        clk = pd.to_numeric(df['clicks'], errors='coerce').fillna(0)
+        invalid_idx = df[lpv > clk].index.tolist()
         if invalid_idx:
             report['landing_page_views_greater_than_clicks'] = invalid_idx
             report['is_valid'] = False
@@ -68,7 +76,8 @@ def validate_business_logic(df: pd.DataFrame) -> dict:
     negative_fields = ['spend_inr', 'budget_inr', 'clicks', 'impressions', 'conversions', 'reach']
     for field in negative_fields:
         if field in df.columns:
-            invalid_idx = df[df[field] < 0].index.tolist()
+            val = pd.to_numeric(df[field], errors='coerce').fillna(0)
+            invalid_idx = df[val < 0].index.tolist()
             if invalid_idx:
                 report['negative_values'][field] = invalid_idx
                 report['is_valid'] = False
@@ -76,11 +85,10 @@ def validate_business_logic(df: pd.DataFrame) -> dict:
 
     # 6. CTR percentage bounds
     if 'ctr_pct' in df.columns:
-        # If ctr_pct > 1.0 (assuming normalized 0-1) or ctr_pct > 100.0 (assuming 0-100)
-        # We can dynamically check based on maximum value
-        max_val = df['ctr_pct'].max()
+        ctr = pd.to_numeric(df['ctr_pct'], errors='coerce').fillna(0)
+        max_val = ctr.max() if not ctr.empty else 0.0
         limit = 100.0 if max_val > 1.0 else 1.0
-        invalid_idx = df[df['ctr_pct'] > limit].index.tolist()
+        invalid_idx = df[ctr > limit].index.tolist()
         if invalid_idx:
             report['ctr_pct_excessive'] = invalid_idx
             report['is_valid'] = False
