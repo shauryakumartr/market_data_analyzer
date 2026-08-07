@@ -1,5 +1,5 @@
 # AI Marketing Analytics Platform
-## Engineering Handbook v2.0
+## Engineering Handbook v3.0
 
 ---
 
@@ -11,7 +11,7 @@ This is a modular, production-quality AI Marketing Analytics Platform designed t
 
 ## 2. Restructured Modular Architecture
 
-The project has been migrated from a flat directory structure into well-defined, highly cohesive packages:
+The project has been migrated into well-defined, highly cohesive packages:
 
 ```
 market_data_analyzer/
@@ -42,16 +42,20 @@ market_data_analyzer/
 │   └── validator.py
 ├── analytics/               # Metrics, KPI, segmentation, and anomaly detection
 │   ├── __init__.py
-│   ├── kpi_calculator.py
-│   ├── performance.py
-│   ├── segmentation.py
-│   ├── graph_data.py
-│   └── anomaly_detector.py
+│   ├── analytics_engine.py  # Orchestrates all analytical runs
+│   ├── utils.py             # Math and formatting helper blocks
+│   ├── kpi.py               # Global account KPIs
+│   ├── campaign_analysis.py # Campaign specific performance metrics
+│   ├── audience_analysis.py # Age & gender breakdowns
+│   ├── device_analysis.py   # Device breakdowns (Desktop/Mobile/Tablet)
+│   ├── objective_analysis.py# Objective breakdowns
+│   ├── time_analysis.py     # Timeline trends & directions
+│   └── anomaly_detection.py # Multi-severity anomaly rules engine
 ├── insights/                # Preparation of display-ready insights
 │   ├── __init__.py
-│   ├── insight_engine.py
-│   ├── recommendations.py
-│   └── summary_builder.py
+│   ├── insight_engine.py    # Interprets what happened & why it matters
+│   ├── recommendation_engine.py # Proposes strategic actions using business rules
+│   └── summary_builder.py   # AI context formatter
 ├── ai/                      # AI integration with Google Gemini
 │   ├── __init__.py
 │   └── ai_engine.py
@@ -77,23 +81,25 @@ market_data_analyzer/
 
 ### Data Handling (`data/`)
 - Loading files and raw CSV streams.
-- Applying user selections (Objective, Device, Gender, Age Group, Date Range) copy-safely.
+- Applying user selections copy-safely.
 
 ### Mapping (`mapping/`)
 - Pre-computing initial column mapping matches based on normalized headers and aliases.
 
 ### Cleaning (`cleaning/`)
 - Performing conversions, null filling, duplicate removal, and stripping formatting.
-- Under no circumstances does this module identify business anomalies.
 
 ### Validation (`validation/`)
 - Verifies system inputs: Schema presence, structural validity, row count checks, collision detection for mappings, missing values assessment, duplicate row checks, business rule validation, and derived metrics discrepancies.
 
 ### Analytics (`analytics/`)
-- Calculates raw metrics: KPI aggregations, segment cohorts, graph dimensions, performance ranks, and business rule anomaly detection.
+- Orchestrated by `analytics_engine.py`. Under no circumstances does this module create recommendations or format graphs.
+- Contains independent modules for computing account-level KPIs, campaign segments, demographics cohorts, device shares, timeline trend series, and severity-sorted performance anomalies.
 
 ### Insights (`insights/`)
-- Converts raw metrics into decorated formats (formatting currency, rounding percentages, grouping tables, mapping recommendations) for the dashboard.
+- Converts raw metrics into decorated formats (formatting currency, rounding percentages, grouping tables) for the dashboard.
+- `insight_engine.py` interprets metrics to qualitative "What happened" and "Why it matters" text.
+- `recommendation_engine.py` proposes tactical actions based on data.
 - Summarizes analytical context into standard schemas for the AI.
 
 ### AI Engine (`ai/`)

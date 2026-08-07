@@ -106,3 +106,30 @@ Violates the handbook design principle that cleaning should never validate busin
 **Scalability Impact**: Highly positive. New business rules can be added as validation metrics without altering cleaner logic.  
 **Maintainability Impact**: Positive. Clear debugging boundaries for bad data.  
 **Testing Impact**: Unit tests can run checks on validators directly.
+
+---
+
+## Decision 4: Modular Analytics Restructuring and Pipeline Orchestration
+
+**Context**:  
+Analytics logic was scattered across coupled, partially completed segmentation files, and calculators in `analytics/`. There was no distinct orchestrator mapping the inputs and outputs, leading to presentation code carrying too much formatting and calculation burden.
+
+**Problem**:  
+- Calculation logic (CTR, CPC) was repeated across segmentation algorithms.
+- Interpretation logic was mixed up, and recommendation criteria were not clearly decoupled from business KPIs.
+- Streamlit application layer directly called separate calculator utilities, complicating testing and validation.
+
+**Decision Taken**:  
+Restructured `analytics/` and `insights/` package to partition calculations and logic interpretability.
+- Created `analytics/utils.py` containing math and formatting building blocks.
+- Split aggregations into decoupled modules: `kpi.py`, `campaign_analysis.py`, `audience_analysis.py`, `device_analysis.py`, `objective_analysis.py`, `time_analysis.py`, and `anomaly_detection.py`.
+- Formed the master `analytics_engine.py` orchestrator to run the entire suite and return a single `analytics_report` object.
+- Re-architected `insights/insight_engine.py` to translate metrics to text ("what happened" & "why it matters" only, no math) and `insights/recommendation_engine.py` to compile action recommendations using deterministic rules.
+
+**Reason**:  
+Enforces strict Single Responsibility Principle (SRP) where calculators compute, insight engines explain, recommendation engines suggest actions, and the orchestrator aggregates.
+
+**Advantages**:  
+- Business logic is completely separated from mathematical calculations.
+- Code readability is maximized.
+- High testability; any single analytical block can be mocked or unit-tested in isolation.

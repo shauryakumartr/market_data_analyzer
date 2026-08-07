@@ -6,24 +6,22 @@ import pandas as pd
 import logging
 
 from config.settings import MAPPING_DROPDOWN_OPTIONS
-from data.loader import load_csv
-from data.filter import filter_data
+from Data.loader import file_load 
+from Data.filter import filter_data
 from mapping.column_mapper import map_columns
 from cleaning.data_cleaner import clean_data
 from validation.duplicate_validator import validate_no_duplicate_mappings
 from validation.validator import run_validation
-from analytics.kpi_calculator import calculate_basic_kpis
-from analytics.campaign_performance import compare_performance
-from analytics.segmentation import analyze_segments
+from analytics.analytics_engine import run_analytics_pipeline
 from analytics.graph_data import prepare_graph_data
-from analytics.anomaly_detector import detect_anomalies
+from analytics.anomaly_detection import detect_anomalies as detect_anomalies_new
 from insights.insight_engine import (
     generate_kpi_summary,
     generate_best_performers,
     generate_performer_insights,
     generate_anomaly_insights,
 )
-from insights.recommendations import generate_recommendations
+from insights.recommendation_engine import generate_recommendations
 from insights.summary_builder import build_ai_summary
 from ai.ai_engine import generate_ai_response
 from visualization.charts import (
@@ -31,6 +29,16 @@ from visualization.charts import (
     create_scatter_chart,
     create_line_chart,
     create_pie_chart,
+)
+
+from visualization.ui_components import (
+    load_custom_css,
+    render_header_banner,
+    open_metric_primary,
+    close_metric_primary,
+    open_metric_secondary,
+    close_metric_secondary,
+    render_vertical_spacer
 )
 
 # Page configuration setup
@@ -41,145 +49,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Inject premium executive custom CSS for styling
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-    
-    /* Global Typography & Font Family */
-    html, body, [class*="css"] {
-        font-family: 'Plus Jakarta Sans', sans-serif;
-    }
-    
-    /* Main container spacing */
-    .block-container {
-        padding-top: 1.5rem;
-        padding-bottom: 2rem;
-    }
-    
-    /* Top Hero Header Banner */
-    .header-banner {
-        background: linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #311042 100%);
-        padding: 2.2rem 2rem;
-        border-radius: 16px;
-        color: white;
-        text-align: left;
-        margin-bottom: 2rem;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-        position: relative;
-        overflow: hidden;
-    }
-    .header-banner::after {
-        content: "";
-        position: absolute;
-        top: -50%;
-        right: -10%;
-        width: 300px;
-        height: 300px;
-        background: radial-gradient(circle, rgba(236, 72, 153, 0.2) 0%, rgba(0,0,0,0) 70%);
-        border-radius: 50%;
-        pointer-events: none;
-    }
-    .header-banner h1 {
-        font-weight: 800;
-        margin: 0;
-        font-size: 2.2rem;
-        letter-spacing: -0.02em;
-        background: linear-gradient(90deg, #FFFFFF 0%, #E2E8F0 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-    .header-banner p {
-        font-weight: 400;
-        margin-top: 0.5rem;
-        margin-bottom: 0;
-        font-size: 1.05rem;
-        color: #94A3B8;
-    }
-    
-    /* Executive Metric Cards Styling */
-    div[data-testid="stMetric"] {
-        background: rgba(30, 41, 59, 0.7);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 12px;
-        padding: 1.1rem;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        transition: all 0.25s ease;
-    }
-    div[data-testid="stMetric"]:hover {
-        transform: translateY(-3px);
-        border-color: rgba(99, 102, 241, 0.4);
-        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.15);
-    }
-    div[data-testid="stMetric"] label {
-        font-size: 0.85rem !important;
-        font-weight: 600 !important;
-        color: #94A3B8 !important;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
-        font-size: 1.7rem !important;
-        font-weight: 800 !important;
-        color: #F8FAFC !important;
-    }
-
-    /* Primary Metric Highlights */
-    .metric-primary div[data-testid="stMetric"] {
-        background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(49, 16, 66, 0.4) 100%);
-        border-left: 4px solid #EC4899;
-    }
-    .metric-secondary div[data-testid="stMetric"] {
-        border-left: 4px solid #6366F1;
-    }
-    
-    /* Custom Cards / Containers */
-    .custom-card {
-        background: rgba(30, 41, 59, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 12px;
-        padding: 1.25rem;
-        margin-bottom: 1rem;
-    }
-    .card-title {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #F8FAFC;
-        margin-bottom: 0.75rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    
-    /* Tabs Customization */
-    button[data-baseweb="tab"] {
-        font-size: 1rem !important;
-        font-weight: 600 !important;
-        padding: 0.6rem 1.4rem !important;
-        border-radius: 8px 8px 0 0 !important;
-        color: #94A3B8 !important;
-    }
-    button[data-baseweb="tab"][aria-selected="true"] {
-        color: #6366F1 !important;
-        border-bottom-color: #6366F1 !important;
-    }
-    
-    /* Sidebar aesthetics */
-    section[data-testid="stSidebar"] {
-        background-color: #0F172A;
-        border-right: 1px solid rgba(255, 255, 255, 0.06);
-    }
-
-    /* Table styling tweaks */
-    .stDataFrame {
-        border-radius: 10px;
-        overflow: hidden;
-    }
-</style>
-""", unsafe_allow_html=True)
-
+# Inject executive custom CSS stylesheet loaded from .streamlit/style.css
+load_custom_css()
 # Setup logging configuration
 logging.basicConfig(
     level=logging.INFO,
@@ -187,25 +58,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Render Header Banner
-st.markdown("""
-<div class="header-banner">
-    <h1>Instagram Campaign Analyzer</h1>
-    <p>Optimize your Instagram marketing campaigns with precision metrics and AI-driven consultant advice</p>
-</div>
-""", unsafe_allow_html=True)
+# Render Header Banner using .streamlit template component
+render_header_banner()
 
 # File Upload Section
-uploaded_file = st.file_uploader("Upload a CSV file containing campaign data to begin:", type=["csv"])
+uploaded_file = st.file_uploader("Upload a CSV or PDF file containing campaign data to begin:", type=["csv", "pdf"])
 
 if uploaded_file:
-    if not uploaded_file.name.endswith(".csv"):
-        st.error("Invalid Filetype. Please upload a CSV file.")
+    if not uploaded_file.name.endswith(".csv") and not uploaded_file.name.endswith(".pdf"):
+        st.error("Invalid Filetype. Please upload a CSV or PDF file.")
         st.stop()
 
     # Load raw data
     try:
-        df_raw = load_csv(uploaded_file)
+        df_raw = file_load(uploaded_file, uploaded_file.name.lower())
     except Exception as e:
         logger.exception("Failed to load uploaded file")
         st.error(f"Invalid file format or corrupted file: {e}")
@@ -333,7 +199,10 @@ if uploaded_file:
 
         # Clean Data
         df_cleaned = clean_data(df_mapped)
-        anomalies = detect_anomalies(df_cleaned)
+        
+        # Run anomaly detection module
+        anom_res = detect_anomalies_new(df_cleaned)
+        anomalies = anom_res['index_map']
 
         # Filters Sidebar setup
         st.sidebar.header("🎯 Filters")
@@ -383,11 +252,81 @@ if uploaded_file:
             st.warning("No data matches current filters. Please adjust selection settings.")
             st.stop()
 
-        # Run Analytics Engine
-        basic_kpis = calculate_basic_kpis(df_filtered)
-        perf_comparisons = compare_performance(df_filtered)
-        segmented_analysis = analyze_segments(df_filtered)
+        # Run Restructured Analytics Engine
+        analytics_report = run_analytics_pipeline(df_filtered)
+        
+        # Prepare graph data
         graph_data = prepare_graph_data(df_filtered)
+
+        # Map variables for UI compatibility
+        basic_kpis = analytics_report['kpis']
+        campaign_report = analytics_report['campaigns']
+        audience_report = analytics_report['audience']
+        device_report = analytics_report['devices']
+        objective_report = analytics_report['objectives']
+        
+        # Helper functions to convert campaign names to dataframe indexes for UI compat
+        def get_campaign_index(name):
+            if not name or df_filtered.empty:
+                return None
+            matches = df_filtered[df_filtered['campaign_name'] == name]
+            return matches.index[0] if not matches.empty else None
+
+        def get_campaign_indexes(names):
+            if not names or df_filtered.empty:
+                return pd.Index([])
+            return df_filtered[df_filtered['campaign_name'].isin(names)].index
+
+        # Reconstruct performance comparison structure directly from campaign_report
+        top_c = campaign_report['top_campaigns']
+        bot_c = campaign_report['bottom_campaigns']
+        campaign_metrics = campaign_report['campaign_metrics']
+        
+        high_perf_names = campaign_report.get('high_performers', [])
+        low_perf_names = campaign_report.get('low_performers', [])
+        
+        # Low CTR and low landing page conversion names
+        account_avg_ctr = basic_kpis.get('ctr', 0.0)
+        account_avg_cvr = basic_kpis.get('conversion_rate', 0.0)
+        
+        low_ctr_names = [name for name, m in campaign_metrics.items() if m.get('ctr', 0.0) <= account_avg_ctr]
+        low_lp_names = [name for name, m in campaign_metrics.items() if m.get('conversion_rate', 0.0) <= account_avg_cvr]
+
+        perf_comparisons = {
+            'Best CTR': get_campaign_index(top_c['highest_ctr']['name']),
+            'Worst CTR': get_campaign_index(bot_c['lowest_ctr']['name']),
+            'Highest conversion campaign': get_campaign_index(top_c['highest_conversion_rate']['name']),
+            'Most expensive CPC': get_campaign_index(max(campaign_metrics.keys(), key=lambda k: campaign_metrics[k].get('cpc', 0.0))) if campaign_metrics else None,
+            'highest spend': get_campaign_index(top_c['highest_spend']['name']),
+            'Low performing campaigns': get_campaign_indexes(low_perf_names),
+            'High performing campaigns': get_campaign_indexes(high_perf_names),
+            'Low CTR campaigns': get_campaign_indexes(low_ctr_names),
+            'Low Landing page conversion campaign': get_campaign_indexes(low_lp_names),
+        }
+
+        # Format segment analysis structures
+        def dict_to_segment_df(data_dict):
+            if not data_dict:
+                return pd.DataFrame()
+            df_seg = pd.DataFrame(data_dict).T
+            rename_map = {
+                'spend_inr': 'Total Spend',
+                'impressions': 'Total Impressions',
+                'clicks': 'Total Clicks',
+                'conversions': 'Total Conversions',
+                'ctr': 'Segment CTR',
+                'cpc': 'Segment CPC',
+                'conversion_rate': 'Segment Conversion Rate'
+            }
+            df_seg.rename(columns=rename_map, inplace=True)
+            return df_seg
+
+        segmented_analysis = {
+            'age_segment': dict_to_segment_df(audience_report['age_analysis']),
+            'gender_segment': dict_to_segment_df(audience_report['gender_analysis']),
+            'device_segment': dict_to_segment_df(device_report['device_metrics']),
+            'objective_segment': dict_to_segment_df(objective_report['objective_metrics'])
+        }
 
         # Generate display-ready insights & recommendations
         kpi_summary = generate_kpi_summary(basic_kpis)
@@ -420,7 +359,7 @@ if uploaded_file:
             st.markdown("### 📊 Executive Summary & Core KPIs")
             
             # Primary Highlight KPIs
-            st.markdown('<div class="metric-primary">', unsafe_allow_html=True)
+            open_metric_primary()
             kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
             with kpi_col1:
                 st.metric(label="Total Ad Spend", value=f"₹{kpi_summary['Total Spend']:,.2f}")
@@ -430,12 +369,12 @@ if uploaded_file:
                 st.metric(label="Average CTR", value=f"{kpi_summary['Average CTR']}%")
             with kpi_col4:
                 st.metric(label="Conversion Rate", value=f"{kpi_summary['Conversion Effectiveness']}%")
-            st.markdown('</div>', unsafe_allow_html=True)
+            close_metric_primary()
 
-            st.markdown("<div style='margin-top: 0.8rem;'></div>", unsafe_allow_html=True)
+            render_vertical_spacer()
 
             # Secondary Operational KPIs
-            st.markdown('<div class="metric-secondary">', unsafe_allow_html=True)
+            open_metric_secondary()
             kpi_col5, kpi_col6, kpi_col7, kpi_col8, kpi_col9 = st.columns(5)
             with kpi_col5:
                 st.metric(label="Total Impressions", value=f"{int(kpi_summary['Total Impressions']):,}")
@@ -447,7 +386,7 @@ if uploaded_file:
                 st.metric(label="Average CPC", value=f"₹{kpi_summary['Average CPC']:.2f}")
             with kpi_col9:
                 st.metric(label="Average CPM", value=f"₹{kpi_summary['Average CPM']:.2f}")
-            st.markdown('</div>', unsafe_allow_html=True)
+            close_metric_secondary()
 
             st.divider()
 

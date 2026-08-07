@@ -104,16 +104,20 @@ market_data_analyzer/
 │   └── validator.py
 ├── analytics/               # Metrics calculations, segmentations, & anomaly detection
 │   ├── __init__.py
-│   ├── kpi_calculator.py
-│   ├── performance.py
-│   ├── segmentation.py
-│   ├── graph_data.py
-│   └── anomaly_detector.py
+│   ├── analytics_engine.py  # Master analytics orchestrator
+│   ├── utils.py             # Reusable math and formatting blocks
+│   ├── kpi.py               # Account level KPIs
+│   ├── campaign_analysis.py # Campaign specific performance metrics
+│   ├── audience_analysis.py # Age & gender breaks
+│   ├── device_analysis.py   # Desktop, Mobile, Tablet analysis
+│   ├── objective_analysis.py# Campaign objective analyses
+│   ├── time_analysis.py     # Timeline trends & directions
+│   └── anomaly_detection.py # Critical, warning & minor anomaly rules
 ├── insights/                # Formatting display-ready metrics & recommendations
 │   ├── __init__.py
-│   ├── insight_engine.py
-│   ├── recommendations.py
-│   └── summary_builder.py
+│   ├── insight_engine.py    # Interprets what happened & why it matters
+│   ├── recommendation_engine.py # Strategic actions decision engine
+│   └── summary_builder.py   # AI context summary builder
 ├── ai/                      # Google Gemini API integration module
 │   ├── __init__.py
 │   └── ai_engine.py

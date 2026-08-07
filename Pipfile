@@ -15,6 +15,7 @@ jupyterlab = "*"
 notebook = "*"
 pywinpty = {version="*", markers="platform_system == 'Windows'"}
 streamlit = "*"
+pdfplumber = "*"
 
 [dev-packages]
 
