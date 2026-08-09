@@ -1,8 +1,13 @@
 """Main orchestrator for running all validation pipelines.
+
+Executes schema checks, structural integrity verification, missing value audits,
+duplicate row detection, business logic invariants, and derived metric comparisons.
 """
 
 import pandas as pd
 import logging
+from typing import Dict, Any
+
 from validation.schema_validator import validate_schema
 from validation.structural_validator import validate_structure
 from validation.missing_value_validator import validate_missing_values
@@ -10,37 +15,39 @@ from validation.duplicate_row_validator import validate_duplicate_rows
 from validation.business_logic_validator import validate_business_logic
 from validation.derived_metric_validator import validate_derived_metrics
 
-logger = logging.getLogger(__name__)
+# Module-level logger for validation pipeline orchestration
+logger: logging.Logger = logging.getLogger(__name__)
 
-def run_validation(df: pd.DataFrame) -> dict:
+
+def run_validation(df: pd.DataFrame) -> Dict[str, Any]:
     """Run the complete suite of validators against the dataset.
 
     Parameters
     ----------
     df : pd.DataFrame
-        DataFrame to validate.
+        Cleaned DataFrame to validate.
 
     Returns
     -------
-    dict
-        Combined validation report with sub-reports and overall validity flag.
+    Dict[str, Any]
+        Combined validation report containing sub-reports and overall validity flag.
     """
-    logger.info("Starting run_validation orchestrator pipeline")
+    logger.info("Initiating run_validation orchestrator pipeline across %d records", len(df))
 
-    schema_report = validate_schema(df)
+    schema_report: Dict[str, Any] = validate_schema(df)
     
     # Structural validator requires schema report to check empty mandatory/optional cols
-    struct_report = validate_structure(df, schema_report)
+    struct_report: Dict[str, Any] = validate_structure(df, schema_report)
     
-    missing_report = validate_missing_values(df)
-    duplicate_report = validate_duplicate_rows(df)
-    business_report = validate_business_logic(df)
-    derived_report = validate_derived_metrics(df)
+    missing_report: Dict[str, Any] = validate_missing_values(df)
+    duplicate_report: Dict[str, Any] = validate_duplicate_rows(df)
+    business_report: Dict[str, Any] = validate_business_logic(df)
+    derived_report: Dict[str, Any] = validate_derived_metrics(df)
 
     # Calculate overall validity status
     # Note: Duplicates and Derived Metrics discrepancy warnings do not fail the run,
     # but missing mandatory values and business logic violations do.
-    is_valid = (
+    is_valid: bool = (
         schema_report.get('is_valid', True) and
         struct_report.get('is_valid', True) and
         missing_report.get('is_valid', True) and

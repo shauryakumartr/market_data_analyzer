@@ -1,14 +1,19 @@
 """Module for comprehensive statistical and business logic anomaly detection.
+
+Evaluates campaign performance anomalies across Spend, CTR, CPC, CPM, CVR, ROAS, Delivery, and Funnel,
+utilizing Interquartile Range (IQR) statistical bounds and business invariant checks.
 """
 
 import pandas as pd
 import numpy as np
 import logging
-from typing import Any
+from typing import Dict, Any, List, Tuple
 
-logger = logging.getLogger(__name__)
+# Module-level logger for statistical anomaly detection
+logger: logging.Logger = logging.getLogger(__name__)
 
-def detect_anomalies(df: pd.DataFrame) -> dict[str, Any]:
+
+def detect_anomalies(df: pd.DataFrame) -> Dict[str, Any]:
     """Inspect campaign dataset for performance anomalies across Spend, CTR, CPC, CPM, CVR, ROAS, Delivery, and Funnel.
 
     Parameters
@@ -18,16 +23,16 @@ def detect_anomalies(df: pd.DataFrame) -> dict[str, Any]:
 
     Returns
     -------
-    dict[str, Any]
+    Dict[str, Any]
         Dictionary containing critical, warnings, minor lists, categories dict, and index_map.
     """
-    logger.info("Executing comprehensive statistical anomaly detection")
+    logger.info("Executing comprehensive statistical anomaly detection across %d records", len(df))
 
-    critical = []
-    warnings = []
-    minor = []
+    critical: List[Dict[str, Any]] = []
+    warnings: List[Dict[str, Any]] = []
+    minor: List[Dict[str, Any]] = []
 
-    categories = {
+    categories: Dict[str, List[Dict[str, Any]]] = {
         'spend': [],
         'ctr': [],
         'cpc': [],
@@ -42,6 +47,7 @@ def detect_anomalies(df: pd.DataFrame) -> dict[str, Any]:
     }
 
     if df.empty:
+        logger.warning("Empty DataFrame passed to detect_anomalies")
         return {
             'critical': critical,
             'warnings': warnings,
@@ -57,62 +63,64 @@ def detect_anomalies(df: pd.DataFrame) -> dict[str, Any]:
         }
 
     # Helper for upper/lower IQR bounds
-    def get_bounds(series: pd.Series):
-        s = pd.to_numeric(series, errors='coerce').dropna()
+    def get_bounds(series: pd.Series) -> Tuple[float, float]:
+        s: pd.Series = pd.to_numeric(series, errors='coerce').dropna()
         if len(s) < 3:
-            return s.mean() - 2*s.std(), s.mean() + 2*s.std()
-        q1 = s.quantile(0.25)
-        q3 = s.quantile(0.75)
-        iqr = q3 - q1
+            std_val: float = float(s.std()) if len(s) > 1 else 0.0
+            mean_val: float = float(s.mean()) if len(s) > 0 else 0.0
+            return mean_val - 2 * std_val, mean_val + 2 * std_val
+        q1: float = float(s.quantile(0.25))
+        q3: float = float(s.quantile(0.75))
+        iqr: float = q3 - q1
         return q1 - 1.5 * iqr, q3 + 1.5 * iqr
 
     # Gather metrics bounds
-    spend_low, spend_high = get_bounds(df['spend_inr']) if 'spend_inr' in df.columns else (0, 0)
-    ctr_low, ctr_high = get_bounds(df['ctr_pct']) if 'ctr_pct' in df.columns else (0, 0)
-    cpc_low, cpc_high = get_bounds(df['cpc_inr']) if 'cpc_inr' in df.columns else (0, 0)
-    cvr_low, cvr_high = get_bounds(df['conversion_rate_pct']) if 'conversion_rate_pct' in df.columns else (0, 0)
+    spend_low, spend_high = get_bounds(df['spend_inr']) if 'spend_inr' in df.columns else (0.0, 0.0)
+    ctr_low, ctr_high = get_bounds(df['ctr_pct']) if 'ctr_pct' in df.columns else (0.0, 0.0)
+    cpc_low, cpc_high = get_bounds(df['cpc_inr']) if 'cpc_inr' in df.columns else (0.0, 0.0)
+    cvr_low, cvr_high = get_bounds(df['conversion_rate_pct']) if 'conversion_rate_pct' in df.columns else (0.0, 0.0)
 
-    cpm_series = (df['spend_inr'] / df['impressions'] * 1000.0).fillna(0.0) if 'spend_inr' in df.columns and 'impressions' in df.columns else pd.Series(0.0, index=df.index)
+    cpm_series: pd.Series = (df['spend_inr'] / df['impressions'] * 1000.0).fillna(0.0) if 'spend_inr' in df.columns and 'impressions' in df.columns else pd.Series(0.0, index=df.index)
     cpm_low, cpm_high = get_bounds(cpm_series)
 
-    roas_low, roas_high = get_bounds(df['roas']) if 'roas' in df.columns else (0, 0)
+    roas_low, roas_high = get_bounds(df['roas']) if 'roas' in df.columns else (0.0, 0.0)
 
-    mean_ctr = df['ctr_pct'].mean() if 'ctr_pct' in df.columns else 0.0
-    mean_cvr = df['conversion_rate_pct'].mean() if 'conversion_rate_pct' in df.columns else 0.0
-    mean_spend = df['spend_inr'].mean() if 'spend_inr' in df.columns else 0.0
+    mean_ctr: float = float(df['ctr_pct'].mean()) if 'ctr_pct' in df.columns else 0.0
+    mean_cvr: float = float(df['conversion_rate_pct'].mean()) if 'conversion_rate_pct' in df.columns else 0.0
+    mean_spend: float = float(df['spend_inr'].mean()) if 'spend_inr' in df.columns else 0.0
 
-    total_spend = df['spend_inr'].sum() if 'spend_inr' in df.columns else 0.0
-    total_conversions = df['conversions'].sum() if 'conversions' in df.columns else 0.0
+    total_spend: float = float(df['spend_inr'].sum()) if 'spend_inr' in df.columns else 0.0
+    total_conversions: float = float(df['conversions'].sum()) if 'conversions' in df.columns else 0.0
 
     # Legacy index arrays
-    spend_exceeded_idx = []
-    conv_without_clicks_idx = []
-    missing_campaign_idx = []
-    missing_spend_idx = []
-    missing_impressions_idx = []
+    spend_exceeded_idx: List[int] = []
+    conv_without_clicks_idx: List[int] = []
+    missing_campaign_idx: List[int] = []
+    missing_spend_idx: List[int] = []
+    missing_impressions_idx: List[int] = []
 
     for idx, row in df.iterrows():
-        name = row.get('campaign_name', 'Unknown')
-        date_str = str(row.get('date', 'N/A'))
-        spend = float(row.get('spend_inr', 0.0))
-        budget = float(row.get('budget_inr', 0.0))
-        clicks = float(row.get('clicks', 0.0))
-        impressions = float(row.get('impressions', 0.0))
-        reach = float(row.get('reach', 0.0))
-        conversions = float(row.get('conversions', 0.0))
-        ctr = float(row.get('ctr_pct', 0.0))
-        cpc = float(row.get('cpc_inr', 0.0))
-        cpm = float(cpm_series.loc[idx]) if idx in cpm_series.index else 0.0
-        roas = float(row.get('roas', 0.0)) if 'roas' in row else 0.0
-        frequency = float(row.get('frequency', 0.0)) if 'frequency' in row else 1.0
+        name: str = str(row.get('campaign_name', 'Unknown'))
+        date_str: str = str(row.get('date', 'N/A'))
+        spend: float = float(row.get('spend_inr', 0.0))
+        budget: float = float(row.get('budget_inr', 0.0))
+        clicks: float = float(row.get('clicks', 0.0))
+        impressions: float = float(row.get('impressions', 0.0))
+        reach: float = float(row.get('reach', 0.0))
+        conversions: float = float(row.get('conversions', 0.0))
+        ctr: float = float(row.get('ctr_pct', 0.0))
+        cpc: float = float(row.get('cpc_inr', 0.0))
+        cpm: float = float(cpm_series.loc[idx]) if idx in cpm_series.index else 0.0
+        roas: float = float(row.get('roas', 0.0)) if 'roas' in row else 0.0
+        frequency: float = float(row.get('frequency', 0.0)) if 'frequency' in row else 1.0
 
-        lpv = float(row.get('landing_page_views', clicks * 0.85))
-        atc = float(row.get('add_to_cart', lpv * 0.15))
-        purchases = float(row.get('purchases', atc * 0.4))
+        lpv: float = float(row.get('landing_page_views', clicks * 0.85))
+        atc: float = float(row.get('add_to_cart', lpv * 0.15))
+        purchases: float = float(row.get('purchases', atc * 0.4))
 
-        spend_sh = (spend / total_spend * 100.0) if total_spend > 0 else 0.0
-        conv_sh = (conversions / total_conversions * 100.0) if total_conversions > 0 else 0.0
-        cvr = (conversions / clicks * 100.0) if clicks > 0 else 0.0
+        spend_sh: float = (spend / total_spend * 100.0) if total_spend > 0 else 0.0
+        conv_sh: float = (conversions / total_conversions * 100.0) if total_conversions > 0 else 0.0
+        cvr: float = (conversions / clicks * 100.0) if clicks > 0 else 0.0
 
         # Legacy index checks
         if name == 'Unknown':
@@ -127,12 +135,22 @@ def detect_anomalies(df: pd.DataFrame) -> dict[str, Any]:
             conv_without_clicks_idx.append(int(idx))
 
         # Helper to log item
-        def add_item(severity, cat, issue, details):
-            item = {'row_index': int(idx), 'campaign_name': name, 'date': date_str, 'issue': issue, 'details': details}
-            if severity == 'critical': critical.append(item)
-            elif severity == 'warning': warnings.append(item)
-            else: minor.append(item)
-            if cat in categories: categories[cat].append(item)
+        def add_item(severity: str, cat: str, issue: str, details: str) -> None:
+            item: Dict[str, Any] = {
+                'row_index': int(idx),
+                'campaign_name': name,
+                'date': date_str,
+                'issue': issue,
+                'details': details
+            }
+            if severity == 'critical':
+                critical.append(item)
+            elif severity == 'warning':
+                warnings.append(item)
+            else:
+                minor.append(item)
+            if cat in categories:
+                categories[cat].append(item)
 
         # 1. SPEND ANOMALIES
         if budget > 0 and spend > budget:
@@ -175,6 +193,8 @@ def detect_anomalies(df: pd.DataFrame) -> dict[str, Any]:
             add_item('warning', 'funnel', 'High Clicks + Low Landing Page Views', f"{int(clicks)} clicks but only {int(lpv)} views. Slow site load potential.")
         if ctr > (mean_ctr + 1.0) and cvr < 0.5 and clicks > 50:
             add_item('minor', 'funnel', 'High CTR + Low Conversion Rate', f"High interest ({ctr:.2f}% CTR) but low landing page conversions ({cvr:.2f}% CVR).")
+
+    logger.info("Anomaly detection completed successfully (%d critical, %d warnings)", len(critical), len(warnings))
 
     return {
         'critical': critical,

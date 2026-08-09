@@ -3,7 +3,9 @@
 Contains column sets, aliases for mapping, and configuration defaults.
 """
 
-MANDATORY_COLUMNS: set[str] = {
+from typing import Set, Dict, List, Optional
+
+MANDATORY_COLUMNS: Set[str] = {
     'date',
     'budget_inr',
     'spend_inr',
@@ -13,7 +15,7 @@ MANDATORY_COLUMNS: set[str] = {
     'conversions',
 }
 
-OPTIONAL_COLUMNS: set[str] = {
+OPTIONAL_COLUMNS: Set[str] = {
     'platform',
     'campaign_name',
     'ad_set_name',
@@ -29,7 +31,7 @@ OPTIONAL_COLUMNS: set[str] = {
     'purchases',
 }
 
-DERIVED_COLUMNS: set[str] = {
+DERIVED_COLUMNS: Set[str] = {
     'ctr_pct',
     'cpc_inr',
     'conversion_rate_pct',
@@ -37,7 +39,7 @@ DERIVED_COLUMNS: set[str] = {
     'roas',
 }
 
-COLUMN_ALIASES: dict[str, list[str]] = {
+COLUMN_ALIASES: Dict[str, List[str]] = {
     "date": ["date", "day", "report_date", "reporting_date", "timestamp", "dt"],
     "platform": ["platform", "source", "medium", "publisher_platform", "channel", "network"],
     "campaign_name": ["campaign_name", "campaign", "campaign_title", "utm_campaign", "cid"],
@@ -67,7 +69,7 @@ COLUMN_ALIASES: dict[str, list[str]] = {
     "roas": ["roas", "return_on_ad_spend", "purchase_roas", "purchase_revenue_roas"]
 }
 
-NUMERIC_COLUMNS: list[str] = [
+NUMERIC_COLUMNS: List[str] = [
     'budget_inr',
     'spend_inr',
     'impressions',
@@ -80,19 +82,19 @@ NUMERIC_COLUMNS: list[str] = [
     'purchases',
 ]
 
-PERCENTAGE_COLUMNS: list[str] = [
+PERCENTAGE_COLUMNS: List[str] = [
     'ctr_pct',
     'conversion_rate_pct',
 ]
 
-SEGMENT_COLUMNS: list[str] = [
+SEGMENT_COLUMNS: List[str] = [
     'age_group',
     'gender',
     'device',
     'objective',
 ]
 
-MAPPING_DROPDOWN_OPTIONS: list[str | None] = [
+MAPPING_DROPDOWN_OPTIONS: List[Optional[str]] = [
     None,
     "date",
     "platform",

@@ -1,18 +1,21 @@
 """Module for multi-stage marketing funnel and drop-off analysis.
+
+Computes conversion progression across funnel stages:
+Impressions -> Clicks -> Landing Page Views -> Add To Cart -> Purchases -> Conversions,
+calculating inter-stage drop-off percentages and pinpointing conversion bottlenecks.
 """
 
 import pandas as pd
 import logging
-from typing import Any
+from typing import Dict, Any, List, Optional
 from analytics.utils import safe_divide
 
-logger = logging.getLogger(__name__)
+# Module-level logger for marketing funnel analytics
+logger: logging.Logger = logging.getLogger(__name__)
 
-def analyze_funnel(df: pd.DataFrame) -> dict[str, Any]:
+
+def analyze_funnel(df: pd.DataFrame) -> Dict[str, Any]:
     """Calculate funnel counts, conversion rates, and drop-offs across funnel stages.
-
-    Stages:
-    Impressions -> Clicks -> Landing Page Views -> Add To Cart -> Purchases -> Conversions
 
     Parameters
     ----------
@@ -21,12 +24,14 @@ def analyze_funnel(df: pd.DataFrame) -> dict[str, Any]:
 
     Returns
     -------
-    dict[str, Any]
-        Funnel report.
+    Dict[str, Any]
+        Funnel report containing stages counts, inter-stage retention rates, drop-off percentages,
+        largest drop-off stage, strongest stage, and weakest stage.
     """
-    logger.info("Executing marketing funnel analysis")
+    logger.info("Executing marketing funnel analysis across %d records", len(df))
 
     if df.empty:
+        logger.warning("Empty DataFrame passed to analyze_funnel")
         return {
             'stages': {},
             'conversion_rates': {},
@@ -36,15 +41,15 @@ def analyze_funnel(df: pd.DataFrame) -> dict[str, Any]:
             'weakest_stage': None
         }
 
-    impressions = float(df['impressions'].sum()) if 'impressions' in df.columns else 0.0
-    clicks = float(df['clicks'].sum()) if 'clicks' in df.columns else 0.0
-    lpv = float(df['landing_page_views'].sum()) if 'landing_page_views' in df.columns else clicks * 0.85
-    atc = float(df['add_to_cart'].sum()) if 'add_to_cart' in df.columns else lpv * 0.15
-    purchases = float(df['purchases'].sum()) if 'purchases' in df.columns else atc * 0.4
-    conversions = float(df['conversions'].sum()) if 'conversions' in df.columns else purchases
+    impressions: float = float(df['impressions'].sum()) if 'impressions' in df.columns else 0.0
+    clicks: float = float(df['clicks'].sum()) if 'clicks' in df.columns else 0.0
+    lpv: float = float(df['landing_page_views'].sum()) if 'landing_page_views' in df.columns else clicks * 0.85
+    atc: float = float(df['add_to_cart'].sum()) if 'add_to_cart' in df.columns else lpv * 0.15
+    purchases: float = float(df['purchases'].sum()) if 'purchases' in df.columns else atc * 0.4
+    conversions: float = float(df['conversions'].sum()) if 'conversions' in df.columns else purchases
 
-    # Ensure realistic monotonically non-increasing funnel defaults if missing columns
-    stages = {
+    # Aggregate funnel stage counts
+    stages: Dict[str, float] = {
         'Impressions': impressions,
         'Clicks': clicks,
         'Landing Page Views': lpv,
@@ -54,40 +59,41 @@ def analyze_funnel(df: pd.DataFrame) -> dict[str, Any]:
     }
 
     # Inter-stage conversion rates (Retention %)
-    stage_keys = ['Impressions', 'Clicks', 'Landing Page Views', 'Add To Cart', 'Purchases', 'Conversions']
-    conversion_rates = {}
-    drop_off_pct = {}
+    stage_keys: List[str] = ['Impressions', 'Clicks', 'Landing Page Views', 'Add To Cart', 'Purchases', 'Conversions']
+    conversion_rates: Dict[str, float] = {}
+    drop_off_pct: Dict[str, float] = {}
 
     for i in range(len(stage_keys) - 1):
-        src_name = stage_keys[i]
-        dst_name = stage_keys[i+1]
-        step_name = f"{src_name} -> {dst_name}"
+        src_name: str = stage_keys[i]
+        dst_name: str = stage_keys[i+1]
+        step_name: str = f"{src_name} -> {dst_name}"
         
-        src_val = stages[src_name]
-        dst_val = stages[dst_name]
+        src_val: float = stages[src_name]
+        dst_val: float = stages[dst_name]
         
-        retention = (safe_divide(dst_val, src_val) * 100.0) if src_val > 0 else 0.0
-        # Drop-off % is (100 - retention)
-        drop = (100.0 - retention) if src_val > 0 else 0.0
+        retention: float = (safe_divide(dst_val, src_val) * 100.0) if src_val > 0 else 0.0
+        drop: float = (100.0 - retention) if src_val > 0 else 0.0
         
         conversion_rates[step_name] = round(retention, 2)
         drop_off_pct[step_name] = round(drop, 2)
 
     # Detect largest drop-off stage and strongest stage
-    largest_drop_off_stage = None
-    max_drop = -1.0
-    strongest_stage = None
-    max_retention = -1.0
+    largest_drop_off_stage: Optional[str] = None
+    max_drop: float = -1.0
+    strongest_stage: Optional[str] = None
+    max_retention: float = -1.0
 
-    for step_name, drop in drop_off_pct.items():
-        if drop > max_drop:
-            max_drop = drop
+    for step_name, drop_val in drop_off_pct.items():
+        if drop_val > max_drop:
+            max_drop = drop_val
             largest_drop_off_stage = step_name
 
-    for step_name, ret in conversion_rates.items():
-        if ret > max_retention:
-            max_retention = ret
+    for step_name, ret_val in conversion_rates.items():
+        if ret_val > max_retention:
+            max_retention = ret_val
             strongest_stage = step_name
+
+    logger.info("Marketing funnel analysis completed successfully (Largest drop-off: '%s')", largest_drop_off_stage)
 
     return {
         'stages': stages,

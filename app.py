@@ -4,6 +4,7 @@
 import streamlit as st
 import pandas as pd
 import logging
+from typing import Dict, Any, List, Optional, Union
 
 from config.settings import MAPPING_DROPDOWN_OPTIONS
 from Data.loader import file_load 
@@ -29,6 +30,7 @@ from visualization.charts import (
     create_scatter_chart,
     create_line_chart,
     create_pie_chart,
+    create_funnel_chart,
 )
 
 from visualization.ui_components import (
@@ -62,20 +64,33 @@ logger = logging.getLogger(__name__)
 render_header_banner()
 
 # File Upload Section
-uploaded_file = st.file_uploader("Upload a CSV or PDF file containing campaign data to begin:", type=["csv", "pdf"])
+uploaded_file = st.file_uploader("Upload a CSV, PDF, or Excel (XLSX) file containing campaign data to begin:", type=["csv", "pdf", "xlsx", "xls"],accept_multiple_files=True,key="file_uploader")
 
 if uploaded_file:
-    if not uploaded_file.name.endswith(".csv") and not uploaded_file.name.endswith(".pdf"):
-        st.error("Invalid Filetype. Please upload a CSV or PDF file.")
-        st.stop()
+    for file in uploaded_file:
+     fname_lower=file.name
+     fname_lower = fname_lower.lower()
+     if not any(fname_lower.endswith(ext) for ext in [".csv", ".pdf", ".xlsx", ".xls"]):
+         st.error("Invalid Filetype. Please upload a CSV, PDF, or XLSX file.")
+         st.stop()
 
     # Load raw data
     try:
-        df_raw = file_load(uploaded_file, uploaded_file.name.lower())
+        for file in uploaded_file:
+            temp_df = file_load(file, file.name.lower())
+            df_raw = pd.concat([df_raw, temp_df], ignore_index=True) if 'df_raw' in locals() else temp_df
     except Exception as e:
         logger.exception("Failed to load uploaded file")
         st.error(f"Invalid file format or corrupted file: {e}")
         st.stop()
+
+    # File state change detector
+    file_identifier = getattr(uploaded_file, "name", str(uploaded_file))
+    if "current_file_id" not in st.session_state or st.session_state.current_file_id != file_identifier:
+        st.session_state.current_file_id = file_identifier
+        st.session_state.mapping_confirmed = False
+        st.session_state.analytics_view = False
+        st.session_state.user_mapping = {}
 
     # Session State Initialization for mappings
     if "mapping_confirmed" not in st.session_state:
@@ -138,20 +153,26 @@ if uploaded_file:
 
     if st.session_state.analytics_view:
         # Build mapped dataframe using stored mapping
-        user_mapping = st.session_state.user_mapping
+        user_mapping = st.session_state.get("user_mapping", {})
         
-        # Filter mapping to exclude Ignore Column or None/Custom
+        # Filter mapping to exclude Ignore Column or None/Custom and ensure column exists in df_raw
         rename_dict = {}
         columns_to_keep = []
         for orig, canonical in user_mapping.items():
-            if canonical not in (None, "Ignore Column", "Custom Column"):
+            if canonical not in (None, "Ignore Column", "Custom Column") and orig in df_raw.columns:
                 rename_dict[orig] = canonical
                 columns_to_keep.append(orig)
         
-        df_mapped = df_raw[columns_to_keep].rename(columns=rename_dict)
+        if columns_to_keep:
+            df_mapped = df_raw[columns_to_keep].rename(columns=rename_dict)
+        else:
+            df_mapped = df_raw.copy()
 
-        # Run Validation Pipeline
-        validation_report = run_validation(df_mapped)
+        # Run Data Cleaning Pipeline (coercing datatypes, cleaning string numbers/currencies/percentages before validation & analytics)
+        df_cleaned = clean_data(df_mapped)
+
+        # Run Validation Pipeline on cleaned dataset
+        validation_report = run_validation(df_cleaned)
         if not validation_report['is_valid']:
             st.error("Uploaded dataset failed critical structural validation checks.")
             with st.expander("Show Validation Report Details", expanded=True):
@@ -184,22 +205,8 @@ if uploaded_file:
                 key="derived_metric_choice"
             )
 
-        # Apply derived metrics selection to mapping frame
-        if metric_choice == "Calculated Metrics (Recommended)":
-            df_mapped['ctr_pct'] = (df_mapped['clicks'] / df_mapped['impressions']).fillna(0.0) if 'impressions' in df_mapped.columns and 'clicks' in df_mapped.columns else 0.0
-            df_mapped['cpc_inr'] = (df_mapped['spend_inr'] / df_mapped['clicks']).fillna(0.0) if 'spend_inr' in df_mapped.columns and 'clicks' in df_mapped.columns else 0.0
-            df_mapped['conversion_rate_pct'] = (df_mapped['conversions'] / df_mapped['clicks']).fillna(0.0) if 'conversions' in df_mapped.columns and 'clicks' in df_mapped.columns else 0.0
-        else:
-            # Ensure uploaded metrics are normalized (0-1) for percentages to keep systems consistent
-            for pct_col in ['ctr_pct', 'conversion_rate_pct']:
-                if pct_col in df_mapped.columns:
-                    max_val = df_mapped[pct_col].max()
-                    if max_val > 1.0:
-                        df_mapped[pct_col] = df_mapped[pct_col] / 100.0
-
-        # Clean Data
-        df_cleaned = clean_data(df_mapped)
         
+
         # Run anomaly detection module
         anom_res = detect_anomalies_new(df_cleaned)
         anomalies = anom_res['index_map']
@@ -252,8 +259,8 @@ if uploaded_file:
             st.warning("No data matches current filters. Please adjust selection settings.")
             st.stop()
 
-        # Run Restructured Analytics Engine
-        analytics_report = run_analytics_pipeline(df_filtered)
+        # Run Restructured Analytics Engine (all derived metrics calculated internally)
+        analytics_report = run_analytics_pipeline(df_filtered, metric_choice=metric_choice)
         
         # Prepare graph data
         graph_data = prepare_graph_data(df_filtered)
@@ -266,33 +273,33 @@ if uploaded_file:
         objective_report = analytics_report['objectives']
         
         # Helper functions to convert campaign names to dataframe indexes for UI compat
-        def get_campaign_index(name):
+        def get_campaign_index(name: Optional[str]) -> Optional[Any]:
             if not name or df_filtered.empty:
                 return None
-            matches = df_filtered[df_filtered['campaign_name'] == name]
+            matches: pd.DataFrame = df_filtered[df_filtered['campaign_name'] == name]
             return matches.index[0] if not matches.empty else None
 
-        def get_campaign_indexes(names):
+        def get_campaign_indexes(names: List[str]) -> pd.Index:
             if not names or df_filtered.empty:
                 return pd.Index([])
             return df_filtered[df_filtered['campaign_name'].isin(names)].index
 
         # Reconstruct performance comparison structure directly from campaign_report
-        top_c = campaign_report['top_campaigns']
-        bot_c = campaign_report['bottom_campaigns']
-        campaign_metrics = campaign_report['campaign_metrics']
+        top_c: Dict[str, Any] = campaign_report['top_campaigns']
+        bot_c: Dict[str, Any] = campaign_report['bottom_campaigns']
+        campaign_metrics: Dict[str, Any] = campaign_report['campaign_metrics']
         
-        high_perf_names = campaign_report.get('high_performers', [])
-        low_perf_names = campaign_report.get('low_performers', [])
+        high_perf_names: List[str] = campaign_report.get('high_performers', [])
+        low_perf_names: List[str] = campaign_report.get('low_performers', [])
         
         # Low CTR and low landing page conversion names
-        account_avg_ctr = basic_kpis.get('ctr', 0.0)
-        account_avg_cvr = basic_kpis.get('conversion_rate', 0.0)
+        account_avg_ctr: float = float(basic_kpis.get('ctr', 0.0))
+        account_avg_cvr: float = float(basic_kpis.get('conversion_rate', 0.0))
         
-        low_ctr_names = [name for name, m in campaign_metrics.items() if m.get('ctr', 0.0) <= account_avg_ctr]
-        low_lp_names = [name for name, m in campaign_metrics.items() if m.get('conversion_rate', 0.0) <= account_avg_cvr]
+        low_ctr_names: List[str] = [name for name, m in campaign_metrics.items() if m.get('ctr', 0.0) <= account_avg_ctr]
+        low_lp_names: List[str] = [name for name, m in campaign_metrics.items() if m.get('conversion_rate', 0.0) <= account_avg_cvr]
 
-        perf_comparisons = {
+        perf_comparisons: Dict[str, Any] = {
             'Best CTR': get_campaign_index(top_c['highest_ctr']['name']),
             'Worst CTR': get_campaign_index(bot_c['lowest_ctr']['name']),
             'Highest conversion campaign': get_campaign_index(top_c['highest_conversion_rate']['name']),
@@ -305,11 +312,11 @@ if uploaded_file:
         }
 
         # Format segment analysis structures
-        def dict_to_segment_df(data_dict):
+        def dict_to_segment_df(data_dict: Dict[str, Any]) -> pd.DataFrame:
             if not data_dict:
                 return pd.DataFrame()
-            df_seg = pd.DataFrame(data_dict).T
-            rename_map = {
+            df_seg: pd.DataFrame = pd.DataFrame(data_dict).T
+            rename_map: Dict[str, str] = {
                 'spend_inr': 'Total Spend',
                 'impressions': 'Total Impressions',
                 'clicks': 'Total Clicks',
@@ -346,12 +353,13 @@ if uploaded_file:
         )
 
         # Layout Main Dashboard using Tabs
-        tab_overview, tab_cohorts, tab_recommendations, tab_ai, tab_audit = st.tabs([
+        tab_overview, tab_cohorts, tab_recommendations, tab_ai, tab_audit, tab_charts = st.tabs([
             "📊 Overview Dashboard",
             "🧩 Cohorts & Segments",
             "💡 Actionable Advice",
             "🤖 AI Consultant",
-            "🚨 Diagnostics & Audit"
+            "🚨 Diagnostics & Audit",
+            "📈 Comprehensive Charts & Analytics"
         ])
 
         # --- TAB 1: OVERVIEW DASHBOARD ---
@@ -658,6 +666,181 @@ if uploaded_file:
                 st.dataframe(pd.DataFrame(under_perf).T, use_container_width=True)
             with st.expander("Low CTR Campaigns"):
                 st.dataframe(pd.DataFrame(low_ctr_perf).T, use_container_width=True)
+             
+            #Full Dataframe
+            st.subheader("Entire Filtered Dataset")
+            with st.expander("View Complete Filtered Data"):
+                st.dataframe(df_raw, use_container_width=True)
+
+        # --- TAB 6: COMPREHENSIVE CHARTS & ANALYTICS ---
+        with tab_charts:
+            st.subheader("📈 Comprehensive Graphical Analytics")
+            st.write("Complete visual analysis across all representable marketing quantities and performance dimensions.")
+
+            # Section 1: Funnel & Conversion Flow
+            st.markdown("### 🎯 Funnel & Conversion Journey")
+            funnel_data = analytics_report.get('funnel', {}).get('stages', {})
+            if funnel_data:
+                st.plotly_chart(
+                    create_funnel_chart(funnel_data, title="Multi-Stage Marketing Funnel Conversion & Drop-off"),
+                    use_container_width=True
+                )
+
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                if 'campaign_name_vs_ctr' in graph_data:
+                    st.plotly_chart(
+                        create_bar_chart(
+                            graph_data['campaign_name_vs_ctr'],
+                            x_label="Campaign Name",
+                            y_label="CTR (%)",
+                            title="Campaign Name vs Click-Through Rate (CTR)"
+                        ),
+                        use_container_width=True
+                    )
+            with col_f2:
+                if 'campaign_name_vs_conversion_rate' in graph_data:
+                    st.plotly_chart(
+                        create_bar_chart(
+                            graph_data['campaign_name_vs_conversion_rate'],
+                            x_label="Campaign Name",
+                            y_label="Conversion Rate (%)",
+                            title="Campaign Name vs Conversion Rate (%)"
+                        ),
+                        use_container_width=True
+                    )
+
+            st.divider()
+
+            # Section 2: Financial & Cost Efficiency Charts
+            st.markdown("### 💰 Financial & Cost Efficiency Analytics")
+            col_c1, col_c2 = st.columns(2)
+            with col_c1:
+                if 'spend_vs_conversions' in graph_data:
+                    st.plotly_chart(
+                        create_scatter_chart(
+                            graph_data['spend_vs_conversions'],
+                            x_column="spend_inr",
+                            y_column="conversions",
+                            title="Spend vs Conversions Scatter (Cost Efficiency)",
+                            x_label="Spend (INR)",
+                            y_label="Conversions"
+                        ),
+                        use_container_width=True
+                    )
+            with col_c2:
+                if 'campaign_name_vs_cpc' in graph_data:
+                    st.plotly_chart(
+                        create_bar_chart(
+                            graph_data['campaign_name_vs_cpc'],
+                            x_label="Campaign Name",
+                            y_label="CPC (INR)",
+                            title="Cost Per Click (CPC) by Campaign"
+                        ),
+                        use_container_width=True
+                    )
+
+            col_c3, col_c4 = st.columns(2)
+            with col_c3:
+                if 'spend_distribution_by_objective' in graph_data:
+                    st.plotly_chart(
+                        create_pie_chart(
+                            graph_data['spend_distribution_by_objective'],
+                            title="Spend Allocation by Campaign Objective",
+                            name_label="Objective"
+                        ),
+                        use_container_width=True
+                    )
+            with col_c4:
+                if 'conversions_distribution_by_objective' in graph_data:
+                    st.plotly_chart(
+                        create_pie_chart(
+                            graph_data['conversions_distribution_by_objective'],
+                            title="Conversions Distribution by Objective",
+                            name_label="Objective"
+                        ),
+                        use_container_width=True
+                    )
+
+            st.divider()
+
+            # Section 3: Demographic & Cohort Performance
+            st.markdown("### 🧩 Demographic & Segment Visual Breakdowns")
+            col_d1, col_d2 = st.columns(2)
+            with col_d1:
+                if 'gender_vs_conversion_rate' in graph_data:
+                    st.plotly_chart(
+                        create_bar_chart(
+                            graph_data['gender_vs_conversion_rate'],
+                            x_label="Gender",
+                            y_label="Conversion Rate (%)",
+                            title="Gender vs Conversion Rate"
+                        ),
+                        use_container_width=True
+                    )
+            with col_d2:
+                if 'age_group_vs_conversion_rate' in graph_data:
+                    st.plotly_chart(
+                        create_bar_chart(
+                            graph_data['age_group_vs_conversion_rate'],
+                            x_label="Age Group",
+                            y_label="Conversion Rate (%)",
+                            title="Age Group vs Conversion Rate"
+                        ),
+                        use_container_width=True
+                    )
+
+            col_d3, col_d4 = st.columns(2)
+            with col_d3:
+                if 'device_vs_ctr' in graph_data:
+                    st.plotly_chart(
+                        create_bar_chart(
+                            graph_data['device_vs_ctr'],
+                            x_label="Device",
+                            y_label="CTR (%)",
+                            title="Device Type vs CTR"
+                        ),
+                        use_container_width=True
+                    )
+            with col_d4:
+                if 'device_vs_cpc' in graph_data:
+                    st.plotly_chart(
+                        create_bar_chart(
+                            graph_data['device_vs_cpc'],
+                            x_label="Device",
+                            y_label="CPC (INR)",
+                            title="Device Type vs Cost Per Click (CPC)"
+                        ),
+                        use_container_width=True
+                    )
+
+            # Section 4: Time-Series Trends
+            if 'spend_over_time' in graph_data or 'conversions_over_time' in graph_data:
+                st.divider()
+                st.markdown("### 📅 Time-Series Performance Trends")
+                col_t1, col_t2 = st.columns(2)
+                with col_t1:
+                    if 'spend_over_time' in graph_data:
+                        st.plotly_chart(
+                            create_line_chart(
+                                graph_data['spend_over_time'],
+                                x_label="Date",
+                                y_label="Spend (INR)",
+                                title="Daily Spend Trend Over Time"
+                            ),
+                            use_container_width=True
+                        )
+                with col_t2:
+                    if 'conversions_over_time' in graph_data:
+                        st.plotly_chart(
+                            create_line_chart(
+                                graph_data['conversions_over_time'],
+                                x_label="Date",
+                                y_label="Conversions",
+                                title="Daily Conversions Trend Over Time"
+                            ),
+                            use_container_width=True
+                        )
 else:
     # App landing info when no file is uploaded
     st.info("👋 Upload a campaign CSV file in the selector widget to start the analysis pipeline.")

@@ -16,6 +16,7 @@ notebook = "*"
 pywinpty = {version="*", markers="platform_system == 'Windows'"}
 streamlit = "*"
 pdfplumber = "*"
+openpyxl = "*"
 
 [dev-packages]
 

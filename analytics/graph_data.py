@@ -1,13 +1,18 @@
 """Module for preparing data frames and series required by UI graphs.
+
+Generates aggregated chart datasets (Spend over time, CTR vs Conversions, Segment breakdowns,
+Objective distributions, and Scatter aggregations) consumed by Plotly visualization builders.
 """
 
 import pandas as pd
 import logging
-from typing import Union
+from typing import Dict, Union, Any
 
-logger = logging.getLogger(__name__)
+# Module-level logger for graph data preparation
+logger: logging.Logger = logging.getLogger(__name__)
 
-def prepare_graph_data(df: pd.DataFrame) -> dict[str, Union[pd.DataFrame, pd.Series]]:
+
+def prepare_graph_data(df: pd.DataFrame) -> Dict[str, Union[pd.DataFrame, pd.Series]]:
     """Prepare all data structures needed for chart visualization.
 
     Parameters
@@ -17,11 +22,11 @@ def prepare_graph_data(df: pd.DataFrame) -> dict[str, Union[pd.DataFrame, pd.Ser
 
     Returns
     -------
-    dict[str, Union[pd.DataFrame, pd.Series]]
-        Aggregated chart data series and data frames.
+    Dict[str, Union[pd.DataFrame, pd.Series]]
+        Aggregated chart data series and data frames mapped by figure key.
     """
-    logger.info("Preparing graph data")
-    graph_data = {}
+    logger.info("Preparing visualization graph dataset across %d records", len(df))
+    graph_data: Dict[str, Union[pd.DataFrame, pd.Series]] = {}
 
     if df.empty:
         logger.warning("Empty DataFrame passed to prepare_graph_data")
@@ -34,15 +39,15 @@ def prepare_graph_data(df: pd.DataFrame) -> dict[str, Union[pd.DataFrame, pd.Ser
 
         # Campaign Name vs Conversion Rate
         if 'campaign_name' in df.columns and 'conversions' in df.columns and 'clicks' in df.columns:
-            total_conversions = df.groupby('campaign_name')['conversions'].sum()
-            total_clicks = df.groupby('campaign_name')['clicks'].sum()
-            graph_data['campaign_name_vs_conversion_rate'] = (total_conversions / total_clicks.replace(0, float('nan'))).fillna(0) * 100
+            total_conversions: pd.Series = df.groupby('campaign_name')['conversions'].sum()
+            total_clicks: pd.Series = df.groupby('campaign_name')['clicks'].sum()
+            graph_data['campaign_name_vs_conversion_rate'] = (total_conversions / total_clicks.replace(0, float('nan'))).fillna(0) * 100.0
 
         # Device vs Conversion Rate
         if 'device' in df.columns and 'conversions' in df.columns and 'clicks' in df.columns:
             total_conversions = df.groupby('device')['conversions'].sum()
             total_clicks = df.groupby('device')['clicks'].sum()
-            graph_data['device_vs_conversion_rate'] = (total_conversions / total_clicks.replace(0, float('nan'))).fillna(0) * 100
+            graph_data['device_vs_conversion_rate'] = (total_conversions / total_clicks.replace(0, float('nan'))).fillna(0) * 100.0
 
         # Spend vs Conversions
         if 'campaign_name' in df.columns and 'spend_inr' in df.columns and 'conversions' in df.columns:
@@ -51,12 +56,12 @@ def prepare_graph_data(df: pd.DataFrame) -> dict[str, Union[pd.DataFrame, pd.Ser
         # Campaign name vs CTR
         if 'campaign_name' in df.columns and 'clicks' in df.columns and 'impressions' in df.columns:
             total_clicks = df.groupby('campaign_name')['clicks'].sum()
-            total_impressions = df.groupby('campaign_name')['impressions'].sum()
-            graph_data['campaign_name_vs_ctr'] = (total_clicks / total_impressions.replace(0, float('nan'))).fillna(0) * 100
+            total_impressions: pd.Series = df.groupby('campaign_name')['impressions'].sum()
+            graph_data['campaign_name_vs_ctr'] = (total_clicks / total_impressions.replace(0, float('nan'))).fillna(0) * 100.0
 
         # Campaign name vs CPC
         if 'campaign_name' in df.columns and 'spend_inr' in df.columns and 'clicks' in df.columns:
-            total_spend = df.groupby('campaign_name')['spend_inr'].sum()
+            total_spend: pd.Series = df.groupby('campaign_name')['spend_inr'].sum()
             total_clicks = df.groupby('campaign_name')['clicks'].sum()
             graph_data['campaign_name_vs_cpc'] = (total_spend / total_clicks.replace(0, float('nan'))).fillna(0)
 
@@ -68,13 +73,13 @@ def prepare_graph_data(df: pd.DataFrame) -> dict[str, Union[pd.DataFrame, pd.Ser
         if 'objective' in df.columns and 'conversions' in df.columns and 'clicks' in df.columns:
             total_conversions = df.groupby('objective')['conversions'].sum()
             total_clicks = df.groupby('objective')['clicks'].sum()
-            graph_data['objective_vs_conversion_rate'] = (total_conversions / total_clicks.replace(0, float('nan'))).fillna(0) * 100
+            graph_data['objective_vs_conversion_rate'] = (total_conversions / total_clicks.replace(0, float('nan'))).fillna(0) * 100.0
 
         # Device vs CTR
         if 'device' in df.columns and 'clicks' in df.columns and 'impressions' in df.columns:
             total_clicks = df.groupby('device')['clicks'].sum()
             total_impressions = df.groupby('device')['impressions'].sum()
-            graph_data['device_vs_ctr'] = (total_clicks / total_impressions.replace(0, float('nan'))).fillna(0) * 100
+            graph_data['device_vs_ctr'] = (total_clicks / total_impressions.replace(0, float('nan'))).fillna(0) * 100.0
 
         # Device vs CPC
         if 'device' in df.columns and 'spend_inr' in df.columns and 'clicks' in df.columns:
@@ -86,29 +91,29 @@ def prepare_graph_data(df: pd.DataFrame) -> dict[str, Union[pd.DataFrame, pd.Ser
         if 'gender' in df.columns and 'clicks' in df.columns and 'impressions' in df.columns:
             total_clicks = df.groupby('gender')['clicks'].sum()
             total_impressions = df.groupby('gender')['impressions'].sum()
-            graph_data['gender_vs_ctr'] = (total_clicks / total_impressions.replace(0, float('nan'))).fillna(0) * 100
+            graph_data['gender_vs_ctr'] = (total_clicks / total_impressions.replace(0, float('nan'))).fillna(0) * 100.0
 
         # Gender vs Conversion Rate
         if 'gender' in df.columns and 'conversions' in df.columns and 'clicks' in df.columns:
             total_conversions = df.groupby('gender')['conversions'].sum()
             total_clicks = df.groupby('gender')['clicks'].sum()
-            graph_data['gender_vs_conversion_rate'] = (total_conversions / total_clicks.replace(0, float('nan'))).fillna(0) * 100
+            graph_data['gender_vs_conversion_rate'] = (total_conversions / total_clicks.replace(0, float('nan'))).fillna(0) * 100.0
 
         # Age Group vs CTR
         if 'age_group' in df.columns and 'clicks' in df.columns and 'impressions' in df.columns:
             total_clicks = df.groupby('age_group')['clicks'].sum()
             total_impressions = df.groupby('age_group')['impressions'].sum()
-            graph_data['age_group_vs_ctr'] = (total_clicks / total_impressions.replace(0, float('nan'))).fillna(0) * 100
+            graph_data['age_group_vs_ctr'] = (total_clicks / total_impressions.replace(0, float('nan'))).fillna(0) * 100.0
 
         # Age Group vs Conversion Rate
         if 'age_group' in df.columns and 'conversions' in df.columns and 'clicks' in df.columns:
             total_conversions = df.groupby('age_group')['conversions'].sum()
             total_clicks = df.groupby('age_group')['clicks'].sum()
-            graph_data['age_group_vs_conversion_rate'] = (total_conversions / total_clicks.replace(0, float('nan'))).fillna(0) * 100
+            graph_data['age_group_vs_conversion_rate'] = (total_conversions / total_clicks.replace(0, float('nan'))).fillna(0) * 100.0
 
         # Time series aggregations
         if 'date' in df.columns:
-            df_sorted = df.sort_values('date')
+            df_sorted: pd.DataFrame = df.sort_values('date')
             
             if 'spend_inr' in df_sorted.columns:
                 graph_data['spend_over_time'] = df_sorted.groupby('date')['spend_inr'].sum()
@@ -120,9 +125,9 @@ def prepare_graph_data(df: pd.DataFrame) -> dict[str, Union[pd.DataFrame, pd.Ser
                 graph_data['conversions_over_time'] = df_sorted.groupby('date')['conversions'].sum()
             
             if 'clicks' in df_sorted.columns and 'impressions' in df_sorted.columns:
-                daily_clicks = df_sorted.groupby('date')['clicks'].sum()
-                daily_impressions = df_sorted.groupby('date')['impressions'].sum()
-                graph_data['ctr_over_time'] = (daily_clicks / daily_impressions.replace(0, float('nan'))).fillna(0) * 100
+                daily_clicks: pd.Series = df_sorted.groupby('date')['clicks'].sum()
+                daily_impressions: pd.Series = df_sorted.groupby('date')['impressions'].sum()
+                graph_data['ctr_over_time'] = (daily_clicks / daily_impressions.replace(0, float('nan'))).fillna(0) * 100.0
 
         # Spend/Conversions Distribution by Objective
         if 'objective' in df.columns:

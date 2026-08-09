@@ -1,44 +1,49 @@
 """Module for aggregating and formatting the full summary used as AI context.
+
+Compiles KPIs, top performance details, anomaly indices, recommendations, and segment breakdowns
+into a unified dictionary payload for generative AI context consumption.
 """
 
 import pandas as pd
 import logging
-from typing import Any
+from typing import Dict, Any, List
 
-logger = logging.getLogger(__name__)
+# Module-level logger for AI summary building operations
+logger: logging.Logger = logging.getLogger(__name__)
+
 
 def build_ai_summary(
-    kpis: dict[str, Any],
-    best_performance: dict[str, dict],
-    anomalies: dict[str, pd.Index],
+    kpis: Dict[str, Any],
+    best_performance: Dict[str, Dict[str, Any]],
+    anomalies: Dict[str, pd.Index],
     df: pd.DataFrame,
-    recommendations: dict[str, Any],
-    segmented_analysis: dict[str, pd.DataFrame],
-) -> dict[str, Any]:
-    """Build a summary dictionary for AI context.
+    recommendations: Dict[str, Any],
+    segmented_analysis: Dict[str, pd.DataFrame],
+) -> Dict[str, Any]:
+    """Build a summary dictionary payload for AI context integration.
 
     Parameters
     ----------
-    kpis : dict
-        Display-ready KPI summary.
-    best_performance : dict
-        Best performer details.
-    anomalies : dict
-        Anomaly indexes.
+    kpis : Dict[str, Any]
+        Display-ready KPI summary dictionary.
+    best_performance : Dict[str, Dict[str, Any]]
+        Best performer details dictionary.
+    anomalies : Dict[str, pd.Index]
+        Anomaly indexes dictionary.
     df : pd.DataFrame
         Campaign DataFrame.
-    recommendations : dict
-        All recommendations.
-    segmented_analysis : dict
-        All segment DataFrames.
+    recommendations : Dict[str, Any]
+        All generated recommendations.
+    segmented_analysis : Dict[str, pd.DataFrame]
+        Segment breakdown DataFrames map.
 
     Returns
     -------
-    dict[str, Any]
-        Combined summary for AI context.
+    Dict[str, Any]
+        Combined summary payload dictionary.
     """
-    logger.info("Building summary structure for AI context")
-    summary = {}
+    logger.info("Building summary structure for AI context consumption")
+    summary: Dict[str, Any] = {}
 
     # KPIs
     summary['KPIs'] = kpis
@@ -54,10 +59,10 @@ def build_ai_summary(
 
     # Anomalies summary
     for anomaly_type, indexes in anomalies.items():
-        anomaly_details = {}
+        anomaly_details: Dict[int, str] = {}
         for idx in indexes:
             if idx in df.index:
-                row = df.loc[idx]
+                row: pd.Series = df.loc[idx]
                 anomaly_details[int(idx)] = (
                     f"Name {row.get('campaign_name', 'N/A')}, "
                     f"objective {row.get('objective', 'N/A')}, "
@@ -76,9 +81,11 @@ def build_ai_summary(
     # Segmented analysis summaries
     for segment_name, segment_df in segmented_analysis.items():
         if not segment_df.empty:
-            display_cols = ['Total Spend', 'Total Clicks', 'Total Impressions', 'Total Conversions']
-            available_cols = [c for c in display_cols if c in segment_df.columns]
+            display_cols: List[str] = ['Total Spend', 'Total Clicks', 'Total Impressions', 'Total Conversions']
+            available_cols: List[str] = [c for c in display_cols if c in segment_df.columns]
             if available_cols:
                 summary[segment_name] = segment_df[available_cols]
+
+    logger.info("AI context summary structure generated successfully")
 
     return summary
