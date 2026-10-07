@@ -54,8 +54,7 @@ st.set_page_config(
 # Inject executive custom CSS stylesheet loaded from .streamlit/style.css
 load_custom_css()
 # Setup logging configuration
-logging.basicConfig(
-    level=logging.INFO,
+logging.basicConfig(level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)

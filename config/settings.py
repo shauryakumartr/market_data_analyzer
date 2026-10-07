@@ -66,7 +66,13 @@ COLUMN_ALIASES: Dict[str, List[str]] = {
     "conversions": ["conversions", "conv", "total_conversions", "goals_completed", "actions"],
     "conversion_rate_pct": ["conversion_rate_pct", "conversion_rate", "cvr", "conv_rate", "cvr_pct"],
     "cost_per_conversion_inr": ["cost_per_conversion_inr", "cost_per_conv", "cpa", "cac", "cost_per_action", "cost_per_lead"],
-    "roas": ["roas", "return_on_ad_spend", "purchase_roas", "purchase_revenue_roas"]
+    "roas": ["roas", "return_on_ad_spend", "purchase_roas", "purchase_revenue_roas"],
+    "primary_text": ["primary text","primary text (body)","body","ad text","text","primary copy","ad creative text","caption","copy","post text","main text"],
+    "headline": ["headline","ad headline","ad title","title","headline 1","link headline","link text"],
+    "ad_description": ["description","ad description","link description","link text description","subheadline","sub-headline","caption snippet"],
+    "creative_format": ["creative format","ad format","format","placement","ad placement","creative placement"],
+    "creative_type": ["creative type","ad type","content type","asset type","media type","creative asset type"],
+    "language": ["language","ad language","creative language","content language","language code","locale"]
 }
 
 NUMERIC_COLUMNS: List[str] = [
@@ -124,5 +130,32 @@ MAPPING_DROPDOWN_OPTIONS: List[Optional[str]] = [
     "cost_per_conversion_inr",
     "roas",
     "Ignore Column",
-    "Custom Column",
+    "Custom Column"
+
 ]
+
+
+##QUALITATIVE ANALYSIS
+
+MANDATORY_QUALITATIVE_COLUMNS: Set[str]={"primary_text"}
+
+
+OPTIONAL_QUALITATIVE_COLUMNS: Set[str] = {
+    "headline",
+    "ad_description",
+    "creative_format", 
+    "creative_type"  }
+
+
+QUALITATIVE_MAPPING_DROPDOWN_OPTIONS: List[Optional[str]] = [
+
+    None,
+    "primary_text",
+    "headline",
+    "ad_description",
+    "creative_format", 
+    "creative_type",
+    "Ignore Column",
+    "Custom Column"
+]
+

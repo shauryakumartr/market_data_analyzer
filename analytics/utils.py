@@ -219,8 +219,10 @@ def percentage_change(old_val: float, new_val: float) -> float:
         Percentage delta.
     """
     if float(old_val) == 0.0:
-        return 0.0 if float(new_val) == 0.0 else 100.0
-    return ((float(new_val) - float(old_val)) / float(old_val)) * 100.0
+        if float(new_val) == 0.0:
+            return 0.0
+        return 100.0 if float(new_val) > 0 else -100.0
+    return ((float(new_val) - float(old_val)) / abs(float(old_val))) * 100.0
 
 
 def add_performance_scores(df: pd.DataFrame) -> pd.DataFrame:
@@ -269,7 +271,7 @@ def add_performance_scores(df: pd.DataFrame) -> pd.DataFrame:
         s_min: float = float(s.min())
         s_max: float = float(s.max())
         if s_max == s_min:
-            return pd.Series(1.0, index=s.index)
+            return pd.Series(0.0, index=s.index)
         norm: pd.Series = (s - s_min) / (s_max - s_min)
         if inverse:
             norm = 1.0 - norm
@@ -341,22 +343,22 @@ def classify_performance_majority(row: pd.Series, account_kpis: Dict[str, float]
 
     # Count high conditions
     high_conditions: List[bool] = [
-        ctr > avg_ctr,
-        cvr > avg_cvr,
-        cpc < avg_cpc if cpc > 0 and avg_cpc > 0 else False,
-        cpm < avg_cpm if cpm > 0 and avg_cpm > 0 else False,
-        cost_per_conv < avg_cost_conv if cost_per_conv > 0 and avg_cost_conv > 0 else False,
-        roas > avg_roas if roas > 0 and avg_roas > 0 else False,
+        ctr > avg_ctr if avg_ctr >= 0 else False,
+        cvr > avg_cvr if avg_cvr >= 0 else False,
+        cpc < avg_cpc if cpc >= 0 and avg_cpc > 0 else False,
+        cpm < avg_cpm if cpm >= 0 and avg_cpm > 0 else False,
+        cost_per_conv < avg_cost_conv if cost_per_conv >= 0 and avg_cost_conv > 0 else False,
+        roas > avg_roas if avg_roas > 0 else (roas > 0),
         spend_share <= conv_share if (spend_share > 0 or conv_share > 0) else False
     ]
 
     low_conditions: List[bool] = [
-        ctr < avg_ctr,
-        cvr < avg_cvr,
-        cpc > avg_cpc if cpc > 0 and avg_cpc > 0 else False,
-        cpm > avg_cpm if cpm > 0 and avg_cpm > 0 else False,
-        cost_per_conv > avg_cost_conv if cost_per_conv > 0 and avg_cost_conv > 0 else False,
-        roas < avg_roas if roas > 0 and avg_roas > 0 else False,
+        ctr < avg_ctr if avg_ctr >= 0 else False,
+        cvr < avg_cvr if avg_cvr >= 0 else False,
+        cpc > avg_cpc if avg_cpc > 0 else False,
+        cpm > avg_cpm if avg_cpm > 0 else False,
+        cost_per_conv > avg_cost_conv if avg_cost_conv > 0 else False,
+        roas < avg_roas if avg_roas >= 0 else False,
         spend_share > conv_share if (spend_share > 0 or conv_share > 0) else False
     ]
 
@@ -419,9 +421,9 @@ def classify_opportunity(row: pd.Series, account_kpis: Dict[str, float]) -> str:
     avg_cvr: float = account_kpis.get('conversion_rate', 0.0)
     avg_roas: float = account_kpis.get('roas', 0.0)
 
-    if ctr >= avg_ctr and cvr >= avg_cvr and (roas >= avg_roas or roas == 0) and spend_share < 25.0:
+    if ctr >= avg_ctr and cvr >= avg_cvr and roas >= avg_roas and spend_share < 25.0:
         return "High Opportunity"
-    elif roas >= avg_roas * 0.8 or cvr >= avg_cvr * 0.8:
+    elif (avg_roas > 0 and roas >= avg_roas * 0.8) or (avg_cvr > 0 and cvr >= avg_cvr * 0.8):
         return "Medium Opportunity"
     else:
         return "Low Opportunity"
@@ -454,7 +456,7 @@ def classify_risk(row: pd.Series, account_kpis: Dict[str, float]) -> str:
     negative_points: int = 0
     if ctr < avg_ctr: negative_points += 1
     if cvr < avg_cvr: negative_points += 1
-    if roas < avg_roas and roas > 0: negative_points += 1
+    if roas < avg_roas: negative_points += 1
     if spend_share > 20.0: negative_points += 1
 
     if spend_share > 15.0 and negative_points >= 3:

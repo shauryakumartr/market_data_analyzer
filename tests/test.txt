@@ -1,0 +1,76 @@
+Here is a clear breakdown of the module's architecture and execution flow that you can share with your assistant or tooling to add strict typing, structured logging, error handling, and unit test fixtures.
+
+---
+
+### Module Architecture: `analytics/text_analytics.py`
+
+**Purpose**
+
+Processes canonical marketing campaign data to extract deterministic copywriting mechanics, formatting constraints, mobile UI friction flags, and readability metrics from raw ad copy text. It generates an isolated feature DataFrame used by downstream RAG systems and UI dashboards.
+
+---
+
+### Execution Flow
+
+**1. Input Ingestion & Boundary Guards**
+
+* Receives a canonical `pd.DataFrame`.
+* Validates type integrity (`isinstance(df, pd.DataFrame)`).
+* Checks emptiness (`df.empty`).
+* Validates schema compatibility: verifies that `primary_text` is present. If missing, exits gracefully by returning an empty DataFrame without raising an exception.
+
+**2. Row-Level Feature Extraction (`_analyze_single_text`)**
+
+Runs once per row over `primary_text` and `headline`:
+
+* **Sanitization:** Handles `NaN`/`None` values gracefully and strips whitespace.
+* **Volume Metrics:** Measures raw character length, word count (via regex tokenization `\w+`), and headline length.
+* **Visual Rhythm & Formatting:**
+* Uses `emoji.emoji_count()` to calculate raw counts and density relative to word count.
+* Splits on `\n` to calculate active paragraph lines.
+* Evaluates `is_wall_of_text`: flags copy $>200$ characters containing $\le 1$ line break.
+* Evaluates `is_mobile_truncated`: flags copy $>125$ characters (standard feed cutoff).
+
+
+* **Direct-Response Intent Detection:**
+* Scans entire text for promotional patterns via `OFFER_REGEX`.
+* Scans the mobile window (`text[:125]`) to determine if the offer is visible above the fold.
+* Computes `is_offer_buried`: `True` if an offer exists in full copy but is missing from the first 125 characters.
+* Scans for time-sensitive hooks via `URGENCY_REGEX`.
+
+
+* **Cognitive Load Engine & Edge Guardrails:**
+* *Micro-Copy Guardrail ($<10$ words):* Bypasses formula scoring to prevent division artifacts on ultra-short hooks. Returns `100.0` ease, `1.0` grade level, and marks friction as `False`.
+* *Standard Analysis ($\ge 10$ words):* Executes `textstat.flesch_reading_ease()`, `textstat.flesch_kincaid_grade()`, calculates average words per sentence, and computes syllables per word.
+* Flags `is_high_cognitive_friction` if grade level $> 9.0$ or sentence length $> 18$ words.
+
+
+
+**3. Assembly & Data Concatenation (`text_analysis`)**
+
+* Aggregates individual output dictionaries into an intermediate feature DataFrame (`feature_df`).
+* Extracts and standardizes metadata identifiers (`ad_name`, `ad_set_name`, `text`, `headline`, `ad_description`, `cta`, `creative_format`, `creative_type`), falling back to `campaign_name` or `'Unknown'` when specific columns are absent.
+* Merges identifiers with extracted features along column axis (`axis=1`).
+* Emits a clean, aligned qualitative DataFrame.
+
+---
+
+### Technical Specification for Refactoring
+
+```yaml
+Logger Requirements:
+  - Instance: logging.getLogger(__name__) (fix typing from logging.logger to logging.Logger)
+  - Level INFO: Log start of processing and row count.
+  - Level WARNING: Log empty DataFrame or skipped execution when 'primary_text' is missing.
+  - Level ERROR: Log unexpected non-DataFrame input types or extraction crashes.
+
+Type Hinting:
+  - Helper: _analyze_single_text(text: Optional[str], headline: Optional[str] = "") -> Dict[str, Union[int, float, bool]]
+  - Public API: text_analysis(df: pd.DataFrame) -> pd.DataFrame
+
+Performance & Resiliency Requirements:
+  - Precompiled Regex patterns for OFFER_REGEX and URGENCY_REGEX.
+  - Reset DataFrame index before pd.concat(axis=1) to prevent row misalignment if input DataFrame has non-contiguous indexing.
+  - No in-place mutations on the original input DataFrame.
+
+```
