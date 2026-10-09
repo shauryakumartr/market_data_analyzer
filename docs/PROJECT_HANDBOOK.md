@@ -104,6 +104,8 @@ market_data_analyzer/
 
 ### AI Engine (`ai/`)
 - Communicates safely with Google Gemini API using environment variables.
+- `chunker.py`: Reads and chunks knowledge base markdown files (e.g., mobile feed rules, direct response frameworks) into manageable pieces for embedding and Retrieval-Augmented Generation (RAG) workflows.
+- Implements robust error handling, typing, and logging for AI interactions.
 
 ### Visualization (`visualization/`)
 - Returns clean Plotly figures based on chart types.

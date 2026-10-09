@@ -133,3 +133,33 @@ Enforces strict Single Responsibility Principle (SRP) where calculators compute,
 - Business logic is completely separated from mathematical calculations.
 - Code readability is maximized.
 - High testability; any single analytical block can be mocked or unit-tested in isolation.
+
+---
+
+## Decision 5: RAG Knowledge Base Chunker Implementation
+
+**Context**:  
+The AI needed to be contextually aware of marketing frameworks and rules (like direct response frameworks, mobile feed rules, and readability diagnostics) but passing entire raw markdown documents to the LLM exceeds token limits or causes loss of context.
+
+**Problem**:  
+- The original `chunker.py` was a stub with hardcoded paths.
+- No error handling, logging, or type hints.
+- Could not process multiple files or chunk them intelligently.
+
+**Decision Taken**:  
+Implemented a robust `generate_chunks` function in `ai/chunker.py`. It uses regular expressions to split specific markdown files based on H2 (`##`) headers, adds typing, logging, and error handling.
+
+**Reason**:  
+Provides a structured list of textual chunks that can easily be embedded and retrieved for the RAG pipeline.
+
+**Advantages**:  
+- Graceful error handling if files are missing.
+- Contextual chunks that represent independent logical sections.
+- Easily extensible to new markdown rules.
+
+**Disadvantages**:  
+- Simple splitting strategy might still create overly large chunks if a section under `##` is too long.
+
+**Scalability Impact**: Positive. Can be integrated with a vector database.  
+**Maintainability Impact**: Positive. Standardized chunking logic.  
+**Testing Impact**: Easy to mock file reads and test regex logic.
