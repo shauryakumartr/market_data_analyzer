@@ -77,6 +77,5 @@ def generate_chunks(kb_dir: str = "/home/shaw/Documents/market_analyzer/assets/k
     return chunks
 
 if __name__ == "__main__":
-    k = generate_chunks()
-    for key, chunk in k.items():
-        print(f"Key: {key}\nChunk preview: {chunk[:50]}...\n")
+    chunks = generate_chunks()
+    print(len(chunks))
