@@ -5,7 +5,7 @@ from typing import Dict
 
 logger = logging.getLogger(__name__)
 
-def generate_chunks(kb_dir: str = "/home/shaw/Documents/market_analyzer/assets/knowledge_base") -> Dict[str, str]:
+def generate_chunks(kb_dir: str = "/home/shaw/Documents/market_analyzer/assets/knowledge_base") -> Dict[str, Dict[str, str]]:
     """
     Reads knowledge base markdown documents and converts them into chunks based on '##' headers.
     
@@ -67,7 +67,9 @@ def generate_chunks(kb_dir: str = "/home/shaw/Documents/market_analyzer/assets/k
                     heading = f"{base_heading} ({counter})"
                     counter += 1
                     
-                chunks[heading] = chunk_text
+                chunks[heading] = {
+                         "content": chunk_text,
+                         "source": doc}
                     
             logger.info(f"Successfully processed and chunked {doc}.")
             
@@ -77,5 +79,6 @@ def generate_chunks(kb_dir: str = "/home/shaw/Documents/market_analyzer/assets/k
     return chunks
 
 if __name__ == "__main__":
-    chunks = generate_chunks()
-    print(len(chunks))
+    chunks=generate_chunks()
+    for heading, data in chunks.items():
+        print(f"Heading: {heading}\nSource: {data['source']}\nContent:\n{data['content']}\n{'-'*40}")

@@ -16,6 +16,7 @@ from validation.validator import run_validation
 from analytics.analytics_engine import run_analytics_pipeline
 from analytics.graph_data import prepare_graph_data
 from analytics.anomaly_detection import detect_anomalies as detect_anomalies_new
+from analytics.qualitative_analysis import text_analysis
 from insights.insight_engine import (
     generate_kpi_summary,
     generate_best_performers,
@@ -55,6 +56,8 @@ st.set_page_config(
 load_custom_css()
 # Setup logging configuration
 logging.basicConfig(level=logging.INFO,
+                    filename='app.log',
+                    filemode='a',
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -606,11 +609,116 @@ if uploaded_file:
         # --- TAB 4: AI CONSULTANT ---
         with tab_ai:
             st.subheader("🤖 Ask Your Campaign AI Consultant")
+
+            # ── Cascading Campaign Filter ──────────────────────────────
+            # Step 1 → Objective  |  Step 2 → Campaign Name  |  Step 3 → Individual entries (with dates)
+            st.markdown("**🔍 Drill down to specific campaigns for your AI analysis:**")
+
+            has_objective_col: bool = 'objective' in df_filtered.columns
+            has_date_col: bool = 'date' in df_filtered.columns
+
+            # ── Step 1: Select Objective(s) ──
+            if has_objective_col:
+                all_objectives: List[str] = sorted(df_filtered['objective'].dropna().unique().tolist())
+                selected_objectives = st.multiselect(
+                    "① Campaign Objective",
+                    options=all_objectives,
+                    default=all_objectives,
+                    key="ai_obj_filter",
+                    help="Filter by marketing objective first"
+                )
+                df_obj_filtered: pd.DataFrame = df_filtered[df_filtered['objective'].isin(selected_objectives)] if selected_objectives else df_filtered.head(0)
+            else:
+                selected_objectives = []
+                df_obj_filtered = df_filtered.copy()
+
+            # ── Step 2: Select Campaign Name(s) under chosen objectives ──
+            available_names: List[str] = sorted(df_obj_filtered['campaign_name'].dropna().unique().tolist()) if 'campaign_name' in df_obj_filtered.columns else []
+
+            # Build name labels with objective tag so same-named campaigns under different objectives are distinguishable
+            name_label_map: Dict[str, str] = {}
+            for cname in available_names:
+                camp_slice = df_obj_filtered[df_obj_filtered['campaign_name'] == cname]
+                if has_objective_col and not camp_slice['objective'].dropna().empty:
+                    obj_tag = camp_slice['objective'].dropna().iloc[0]
+                    label = f"{cname}  ·  [{obj_tag}]"
+                else:
+                    label = cname
+                name_label_map[label] = cname
+
+            name_display: List[str] = list(name_label_map.keys())
+            selected_name_labels = st.multiselect(
+                "② Campaign Name",
+                options=name_display,
+                default=name_display,
+                key="ai_name_filter",
+                help="Pick one or more campaign names (objective shown in brackets)"
+            )
+            selected_cnames: List[str] = [name_label_map[lbl] for lbl in selected_name_labels]
+            df_name_filtered: pd.DataFrame = df_obj_filtered[df_obj_filtered['campaign_name'].isin(selected_cnames)] if selected_cnames else df_obj_filtered.head(0)
+
+            # ── Step 3: Select individual campaign entries with date ──
+            entry_labels: List[str] = []
+            entry_index_map: Dict[str, List[int]] = {}
+
+            if not df_name_filtered.empty:
+                group_cols = ['campaign_name', 'date'] if has_date_col else ['campaign_name']
+
+                for group_key, grp in df_name_filtered.groupby(group_cols, sort=True):
+                    if has_date_col:
+                        cname_val, date_val = group_key
+                        date_str = str(date_val)[:10]
+                        if 'spend_inr' in grp.columns:
+                            label = f"{cname_val}  ·  📅 {date_str}  ·  ₹{grp['spend_inr'].sum():,.0f}"
+                        else:
+                            label = f"{cname_val}  ·  📅 {date_str}"
+                    else:
+                        cname_val = group_key
+                        if 'spend_inr' in grp.columns:
+                            label = f"{cname_val}  ·  ₹{grp['spend_inr'].sum():,.0f}"
+                        else:
+                            label = str(cname_val)
+
+                    # Deduplicate labels
+                    base_label = label
+                    counter = 2
+                    while label in entry_index_map:
+                        label = f"{base_label} ({counter})"
+                        counter += 1
+                    entry_labels.append(label)
+                    entry_index_map[label] = grp.index.tolist()
+
+            selected_entry_labels = st.multiselect(
+                "③ Individual Campaign Entries",
+                options=entry_labels,
+                default=entry_labels,
+                key="ai_entry_filter",
+                help="Each entry shows: Campaign Name · Date · Spend — select specific runs to analyse"
+            )
+
+            # Collect all selected row indices
+            selected_row_indices: List[int] = []
+            for elbl in selected_entry_labels:
+                selected_row_indices.extend(entry_index_map.get(elbl, []))
+
+            # Final selected campaign names for downstream use
+            selected_campaigns: List[str] = list(
+                df_filtered.loc[df_filtered.index.isin(selected_row_indices), 'campaign_name'].dropna().unique()
+            ) if selected_row_indices else []
+
+            if selected_entry_labels:
+                st.caption(f"📌 {len(selected_entry_labels)} of {len(entry_labels)} entries selected across {len(selected_campaigns)} campaign(s)")
+            else:
+                st.warning("⚠️ No campaign entries selected. Please select at least one.")
+
+            st.divider()
             st.write("Inquire about custom segments, correlations, or request copy suggestions based on your data:")
-            
+
             prompt = st.text_area("Question/Prompt:", placeholder="Which target audience segment is performing best, and what should we optimize next?", height=120)
             if st.button("Consult AI Assistant", type="primary"):
-                if prompt.strip():
+                if not selected_campaigns:
+                    st.warning("Please select at least one campaign before consulting the AI.")
+                elif prompt.strip():
                     with st.spinner("AI is evaluating campaign metrics..."):
                         try:
                             ai_response = generate_ai_response(prompt, ai_summary)
@@ -624,6 +732,12 @@ if uploaded_file:
         # --- TAB 5: DIAGNOSTICS & AUDIT ---
         with tab_audit:
             st.subheader("🚨 Business Logic & Data Discrepancy Audits")
+
+            #Qualitative Analysis
+            st.markdown("#### Qualitative Data Insights")
+            s=text_analysis(df_filtered)
+            st.write(s)
+
 
             # Duplicate row reports
             st.markdown("#### Duplicates Inspection")

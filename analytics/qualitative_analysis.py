@@ -170,3 +170,4 @@ def text_analysis(df: pd.DataFrame) -> pd.DataFrame:
     except Exception as exc:
         logger.exception("Unexpected error encountered during qualitative text analysis: %s", exc)
         return pd.DataFrame()
+

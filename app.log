@@ -1,0 +1,150 @@
+2026-10-18 11:16:38,705 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-10-18 11:16:38,707 - Data.loader - INFO - Initiating file loading dispatcher for source 'instagram_campaign_csv_analyzer_dataset_new.csv' with detected format type 'instagram_campaign_csv_analyzer_dataset_new.csv'
+2026-10-18 11:16:38,707 - Data.csv_loader - INFO - Executing CSV ingestion for file source: 'instagram_campaign_csv_analyzer_dataset_new.csv'
+2026-10-18 11:16:38,719 - Data.csv_loader - INFO - CSV file source 'instagram_campaign_csv_analyzer_dataset_new.csv' parsed successfully: 301 rows, 27 columns
+2026-10-18 11:16:38,719 - Data.loader - INFO - Successfully dispatched and loaded CSV dataset 'instagram_campaign_csv_analyzer_dataset_new.csv' with shape (301, 27)
+2026-10-18 11:16:38,719 - mapping.column_mapper - INFO - Initiating automatic column header mapping prediction across 27 columns
+2026-10-18 11:16:38,723 - mapping.column_mapper - INFO - Successfully matched raw header 'date' -> canonical name 'date'
+2026-10-18 11:16:38,724 - mapping.column_mapper - INFO - Successfully matched raw header 'platform' -> canonical name 'platform'
+2026-10-18 11:16:38,724 - mapping.column_mapper - INFO - Successfully matched raw header 'campaign_name' -> canonical name 'campaign_name'
+2026-10-18 11:16:38,724 - mapping.column_mapper - INFO - Successfully matched raw header 'ad_set_name' -> canonical name 'ad_set_name'
+2026-10-18 11:16:38,724 - mapping.column_mapper - INFO - Successfully matched raw header 'objective' -> canonical name 'objective'
+2026-10-18 11:16:38,724 - mapping.column_mapper - INFO - Successfully matched raw header 'result_type' -> canonical name 'result_type'
+2026-10-18 11:16:38,724 - mapping.column_mapper - INFO - Successfully matched raw header 'region' -> canonical name 'region'
+2026-10-18 11:16:38,725 - mapping.column_mapper - INFO - Successfully matched raw header 'age_group' -> canonical name 'age_group'
+2026-10-18 11:16:38,725 - mapping.column_mapper - INFO - Successfully matched raw header 'gender' -> canonical name 'gender'
+2026-10-18 11:16:38,725 - mapping.column_mapper - INFO - Successfully matched raw header 'device' -> canonical name 'device'
+2026-10-18 11:16:38,725 - mapping.column_mapper - WARNING - Unmapped raw column detected: 'creative_format' (Normalized string: 'creative_format')
+2026-10-18 11:16:38,725 - mapping.column_mapper - INFO - Successfully matched raw header 'cta' -> canonical name 'cta'
+2026-10-18 11:16:38,725 - mapping.column_mapper - INFO - Successfully matched raw header 'budget_inr' -> canonical name 'budget_inr'
+2026-10-18 11:16:38,725 - mapping.column_mapper - INFO - Successfully matched raw header 'spend_inr' -> canonical name 'spend_inr'
+2026-10-18 11:16:38,725 - mapping.column_mapper - INFO - Successfully matched raw header 'impressions' -> canonical name 'impressions'
+2026-10-18 11:16:38,725 - mapping.column_mapper - INFO - Successfully matched raw header 'reach' -> canonical name 'reach'
+2026-10-18 11:16:38,725 - mapping.column_mapper - INFO - Successfully matched raw header 'frequency' -> canonical name 'frequency'
+2026-10-18 11:16:38,725 - mapping.column_mapper - INFO - Successfully matched raw header 'clicks' -> canonical name 'clicks'
+2026-10-18 11:16:38,725 - mapping.column_mapper - INFO - Successfully matched raw header 'ctr_pct' -> canonical name 'ctr_pct'
+2026-10-18 11:16:38,726 - mapping.column_mapper - INFO - Successfully matched raw header 'cpc_inr' -> canonical name 'cpc_inr'
+2026-10-18 11:16:38,726 - mapping.column_mapper - INFO - Successfully matched raw header 'landing_page_views' -> canonical name 'landing_page_views'
+2026-10-18 11:16:38,726 - mapping.column_mapper - INFO - Successfully matched raw header 'add_to_cart' -> canonical name 'add_to_cart'
+2026-10-18 11:16:38,726 - mapping.column_mapper - INFO - Successfully matched raw header 'purchases' -> canonical name 'purchases'
+2026-10-18 11:16:38,726 - mapping.column_mapper - INFO - Successfully matched raw header 'conversions' -> canonical name 'conversions'
+2026-10-18 11:16:38,726 - mapping.column_mapper - INFO - Successfully matched raw header 'conversion_rate_pct' -> canonical name 'conversion_rate_pct'
+2026-10-18 11:16:38,726 - mapping.column_mapper - INFO - Successfully matched raw header 'cost_per_conversion_inr' -> canonical name 'cost_per_conversion_inr'
+2026-10-18 11:16:38,726 - mapping.column_mapper - INFO - Successfully matched raw header 'roas' -> canonical name 'roas'
+2026-10-18 11:16:40,743 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-10-18 11:16:40,744 - Data.loader - INFO - Initiating file loading dispatcher for source 'instagram_campaign_csv_analyzer_dataset_new.csv' with detected format type 'instagram_campaign_csv_analyzer_dataset_new.csv'
+2026-10-18 11:16:40,744 - Data.csv_loader - INFO - Executing CSV ingestion for file source: 'instagram_campaign_csv_analyzer_dataset_new.csv'
+2026-10-18 11:16:40,747 - Data.csv_loader - INFO - CSV file source 'instagram_campaign_csv_analyzer_dataset_new.csv' parsed successfully: 301 rows, 27 columns
+2026-10-18 11:16:40,747 - Data.loader - INFO - Successfully dispatched and loaded CSV dataset 'instagram_campaign_csv_analyzer_dataset_new.csv' with shape (301, 27)
+2026-10-18 11:16:40,747 - mapping.column_mapper - INFO - Initiating automatic column header mapping prediction across 27 columns
+2026-10-18 11:16:40,748 - mapping.column_mapper - INFO - Successfully matched raw header 'date' -> canonical name 'date'
+2026-10-18 11:16:40,748 - mapping.column_mapper - INFO - Successfully matched raw header 'platform' -> canonical name 'platform'
+2026-10-18 11:16:40,748 - mapping.column_mapper - INFO - Successfully matched raw header 'campaign_name' -> canonical name 'campaign_name'
+2026-10-18 11:16:40,748 - mapping.column_mapper - INFO - Successfully matched raw header 'ad_set_name' -> canonical name 'ad_set_name'
+2026-10-18 11:16:40,748 - mapping.column_mapper - INFO - Successfully matched raw header 'objective' -> canonical name 'objective'
+2026-10-18 11:16:40,748 - mapping.column_mapper - INFO - Successfully matched raw header 'result_type' -> canonical name 'result_type'
+2026-10-18 11:16:40,748 - mapping.column_mapper - INFO - Successfully matched raw header 'region' -> canonical name 'region'
+2026-10-18 11:16:40,748 - mapping.column_mapper - INFO - Successfully matched raw header 'age_group' -> canonical name 'age_group'
+2026-10-18 11:16:40,749 - mapping.column_mapper - INFO - Successfully matched raw header 'gender' -> canonical name 'gender'
+2026-10-18 11:16:40,749 - mapping.column_mapper - INFO - Successfully matched raw header 'device' -> canonical name 'device'
+2026-10-18 11:16:40,749 - mapping.column_mapper - WARNING - Unmapped raw column detected: 'creative_format' (Normalized string: 'creative_format')
+2026-10-18 11:16:40,749 - mapping.column_mapper - INFO - Successfully matched raw header 'cta' -> canonical name 'cta'
+2026-10-18 11:16:40,749 - mapping.column_mapper - INFO - Successfully matched raw header 'budget_inr' -> canonical name 'budget_inr'
+2026-10-18 11:16:40,749 - mapping.column_mapper - INFO - Successfully matched raw header 'spend_inr' -> canonical name 'spend_inr'
+2026-10-18 11:16:40,749 - mapping.column_mapper - INFO - Successfully matched raw header 'impressions' -> canonical name 'impressions'
+2026-10-18 11:16:40,749 - mapping.column_mapper - INFO - Successfully matched raw header 'reach' -> canonical name 'reach'
+2026-10-18 11:16:40,749 - mapping.column_mapper - INFO - Successfully matched raw header 'frequency' -> canonical name 'frequency'
+2026-10-18 11:16:40,749 - mapping.column_mapper - INFO - Successfully matched raw header 'clicks' -> canonical name 'clicks'
+2026-10-18 11:16:40,749 - mapping.column_mapper - INFO - Successfully matched raw header 'ctr_pct' -> canonical name 'ctr_pct'
+2026-10-18 11:16:40,750 - mapping.column_mapper - INFO - Successfully matched raw header 'cpc_inr' -> canonical name 'cpc_inr'
+2026-10-18 11:16:40,750 - mapping.column_mapper - INFO - Successfully matched raw header 'landing_page_views' -> canonical name 'landing_page_views'
+2026-10-18 11:16:40,750 - mapping.column_mapper - INFO - Successfully matched raw header 'add_to_cart' -> canonical name 'add_to_cart'
+2026-10-18 11:16:40,750 - mapping.column_mapper - INFO - Successfully matched raw header 'purchases' -> canonical name 'purchases'
+2026-10-18 11:16:40,750 - mapping.column_mapper - INFO - Successfully matched raw header 'conversions' -> canonical name 'conversions'
+2026-10-18 11:16:40,750 - mapping.column_mapper - INFO - Successfully matched raw header 'conversion_rate_pct' -> canonical name 'conversion_rate_pct'
+2026-10-18 11:16:40,750 - mapping.column_mapper - INFO - Successfully matched raw header 'cost_per_conversion_inr' -> canonical name 'cost_per_conversion_inr'
+2026-10-18 11:16:40,750 - mapping.column_mapper - INFO - Successfully matched raw header 'roas' -> canonical name 'roas'
+2026-10-18 11:16:40,766 - validation.duplicate_validator - INFO - Executing duplicate mapping validation across 27 mapped headers
+2026-10-18 11:16:40,917 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-10-18 11:16:40,917 - Data.loader - INFO - Initiating file loading dispatcher for source 'instagram_campaign_csv_analyzer_dataset_new.csv' with detected format type 'instagram_campaign_csv_analyzer_dataset_new.csv'
+2026-10-18 11:16:40,918 - Data.csv_loader - INFO - Executing CSV ingestion for file source: 'instagram_campaign_csv_analyzer_dataset_new.csv'
+2026-10-18 11:16:40,921 - Data.csv_loader - INFO - CSV file source 'instagram_campaign_csv_analyzer_dataset_new.csv' parsed successfully: 301 rows, 27 columns
+2026-10-18 11:16:40,921 - Data.loader - INFO - Successfully dispatched and loaded CSV dataset 'instagram_campaign_csv_analyzer_dataset_new.csv' with shape (301, 27)
+2026-10-18 11:16:45,878 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-10-18 11:16:45,879 - Data.loader - INFO - Initiating file loading dispatcher for source 'instagram_campaign_csv_analyzer_dataset_new.csv' with detected format type 'instagram_campaign_csv_analyzer_dataset_new.csv'
+2026-10-18 11:16:45,879 - Data.csv_loader - INFO - Executing CSV ingestion for file source: 'instagram_campaign_csv_analyzer_dataset_new.csv'
+2026-10-18 11:16:45,882 - Data.csv_loader - INFO - CSV file source 'instagram_campaign_csv_analyzer_dataset_new.csv' parsed successfully: 301 rows, 27 columns
+2026-10-18 11:16:45,882 - Data.loader - INFO - Successfully dispatched and loaded CSV dataset 'instagram_campaign_csv_analyzer_dataset_new.csv' with shape (301, 27)
+2026-10-18 11:16:46,009 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-10-18 11:16:46,010 - Data.loader - INFO - Initiating file loading dispatcher for source 'instagram_campaign_csv_analyzer_dataset_new.csv' with detected format type 'instagram_campaign_csv_analyzer_dataset_new.csv'
+2026-10-18 11:16:46,011 - Data.csv_loader - INFO - Executing CSV ingestion for file source: 'instagram_campaign_csv_analyzer_dataset_new.csv'
+2026-10-18 11:16:46,014 - Data.csv_loader - INFO - CSV file source 'instagram_campaign_csv_analyzer_dataset_new.csv' parsed successfully: 301 rows, 27 columns
+2026-10-18 11:16:46,014 - Data.loader - INFO - Successfully dispatched and loaded CSV dataset 'instagram_campaign_csv_analyzer_dataset_new.csv' with shape (301, 27)
+2026-10-18 11:16:46,018 - cleaning.data_cleaner - INFO - Initiating data cleaning pipeline. Initial dataset shape: (301, 26)
+2026-10-18 11:16:46,070 - cleaning.data_cleaner - WARNING - Removed 1 duplicate rows during data cleaning
+2026-10-18 11:16:46,071 - cleaning.data_cleaner - INFO - Data cleaning completed successfully. Final dataset shape: (300, 26)
+2026-10-18 11:16:46,071 - validation.validator - INFO - Initiating run_validation orchestrator pipeline across 300 records
+2026-10-18 11:16:46,071 - validation.schema_validator - INFO - Starting schema validation on dataset with 26 total columns
+2026-10-18 11:16:46,071 - validation.schema_validator - WARNING - Missing optional columns detected: {'creative_format'}
+2026-10-18 11:16:46,072 - validation.structural_validator - INFO - Executing structural validation on dataset containing 300 rows
+2026-10-18 11:16:46,073 - validation.missing_value_validator - INFO - Executing missing value validation across 300 rows and 26 columns
+2026-10-18 11:16:46,077 - validation.duplicate_row_validator - INFO - Executing duplicate row validation across 300 rows
+2026-10-18 11:16:46,081 - validation.business_logic_validator - INFO - Executing business logic validation across 300 records
+2026-10-18 11:16:46,093 - validation.derived_metric_validator - INFO - Executing derived metrics validation with relative tolerance = 1.00%
+2026-10-18 11:16:46,150 - validation.derived_metric_validator - WARNING - Derived metrics discrepancies detected: ctr=0, cpc=0, cvr=60
+2026-10-18 11:16:46,150 - validation.validator - INFO - Validation pipeline execution complete. Overall Validity: True
+2026-10-18 11:16:46,164 - analytics.anomaly_detection - INFO - Executing comprehensive statistical anomaly detection across 300 records
+2026-10-18 11:16:46,192 - analytics.anomaly_detection - INFO - Anomaly detection completed successfully (40 critical, 1 warnings)
+2026-10-18 11:16:46,198 - Data.filter - INFO - Applying multi-dimensional dataset filters. Initial row count: 300
+2026-10-18 11:16:46,200 - Data.filter - INFO - Filtering complete. Resulting row count: 300 (Filtered out 0 rows)
+2026-10-18 11:16:46,201 - analytics.analytics_engine - INFO - Executing main analytics orchestrator pipeline with metric_choice='Calculated Metrics (Recommended)'
+2026-10-18 11:16:46,203 - analytics.kpi - INFO - Executing account-level KPI calculations across 300 records
+2026-10-18 11:16:46,205 - analytics.kpi - INFO - Account KPIs calculation completed successfully
+2026-10-18 11:16:46,205 - analytics.campaign_analysis - INFO - Executing comprehensive campaign-level analysis across 300 records
+2026-10-18 11:16:46,275 - analytics.campaign_analysis - INFO - Campaign-level analysis completed successfully (2 high, 4 low performers)
+2026-10-18 11:16:46,283 - analytics.audience_analysis - INFO - Executing audience demographic analysis across 300 records
+2026-10-18 11:16:46,333 - analytics.audience_analysis - INFO - Audience demographic analysis completed successfully
+2026-10-18 11:16:46,338 - analytics.device_analysis - INFO - Executing device performance analysis across 300 records
+2026-10-18 11:16:46,365 - analytics.device_analysis - INFO - Device performance analysis completed successfully
+2026-10-18 11:16:46,368 - analytics.objective_analysis - INFO - Executing campaign objective analysis across 300 records
+2026-10-18 11:16:46,402 - analytics.objective_analysis - INFO - Campaign objective analysis completed successfully
+2026-10-18 11:16:46,404 - analytics.time_analysis - INFO - Executing time-series trends analysis across 300 records
+2026-10-18 11:16:46,447 - analytics.time_analysis - INFO - Time-series analysis completed successfully
+2026-10-18 11:16:46,451 - analytics.funnel_analysis - INFO - Executing marketing funnel analysis across 300 records
+2026-10-18 11:16:46,452 - analytics.funnel_analysis - INFO - Marketing funnel analysis completed successfully (Largest drop-off: 'Impressions -> Clicks')
+2026-10-18 11:16:46,452 - analytics.anomaly_detection - INFO - Executing comprehensive statistical anomaly detection across 300 records
+2026-10-18 11:16:46,486 - analytics.anomaly_detection - INFO - Anomaly detection completed successfully (40 critical, 1 warnings)
+2026-10-18 11:16:46,487 - insights.insight_engine - INFO - Generating factual business insights across analytics dimensions
+2026-10-18 11:16:46,487 - insights.insight_engine - INFO - Business insights report generated successfully across 9 categories
+2026-10-18 11:16:46,487 - insights.recommendation_engine - INFO - Executing prioritized recommendation engine across analytics outputs
+2026-10-18 11:16:46,487 - insights.recommendation_engine - INFO - Prioritized recommendation engine completed successfully
+2026-10-18 11:16:46,487 - analytics.analytics_engine - INFO - Analytics pipeline execution complete successfully
+2026-10-18 11:16:46,487 - analytics.graph_data - INFO - Preparing visualization graph dataset across 300 records
+2026-10-18 11:16:46,547 - insights.insight_engine - INFO - Extracting best performers details
+2026-10-18 11:16:46,547 - insights.insight_engine - INFO - Generating performer detail insights
+2026-10-18 11:16:46,612 - insights.insight_engine - INFO - Generating anomaly detail insights
+2026-10-18 11:16:46,618 - insights.recommendation_engine - INFO - Generating marketing recommendations using legacy interface
+2026-10-18 11:16:46,629 - insights.summary_builder - INFO - Building summary structure for AI context consumption
+2026-10-18 11:16:46,642 - insights.summary_builder - INFO - AI context summary structure generated successfully
+2026-10-18 11:16:46,649 - visualization.charts - INFO - Creating bar chart figure: 'Campaign Name vs Spend'
+2026-10-18 11:16:46,799 - visualization.charts - INFO - Creating bar chart figure: 'Campaign Name vs Conversion Rate'
+2026-10-18 11:16:46,851 - visualization.charts - INFO - Creating scatter chart figure: 'Spend vs Conversions (Cost Efficiency)'
+2026-10-18 11:16:46,891 - visualization.charts - INFO - Creating line chart figure: 'Spend Over Time (Timeline)'
+2026-10-18 11:16:46,940 - visualization.charts - INFO - Creating bar chart figure: 'Conversion Rate by Device Type'
+2026-10-18 11:16:46,979 - visualization.charts - INFO - Creating bar chart figure: 'CTR by Gender Cohort'
+2026-10-18 11:16:47,023 - visualization.charts - INFO - Creating bar chart figure: 'CTR by Age Group Cohort'
+2026-10-18 11:16:47,081 - visualization.charts - INFO - Creating pie chart figure: 'Spend Distribution by Campaign Objective'
+2026-10-18 11:16:47,219 - analytics.qualitative_analysis - WARNING - 'primary_text' column missing from DataFrame columns ['date', 'platform', 'campaign_name', 'ad_set_name', 'objective', 'result_type', 'region', 'age_group', 'gender', 'device', 'cta', 'budget_inr', 'spend_inr', 'impressions', 'reach', 'frequency', 'clicks', 'ctr_pct', 'cpc_inr', 'landing_page_views', 'add_to_cart', 'purchases', 'conversions', 'conversion_rate_pct', 'cost_per_conversion_inr', 'roas']. Skipping text analysis.
+2026-10-18 11:16:47,264 - visualization.charts - INFO - Creating funnel chart figure: 'Multi-Stage Marketing Funnel Conversion & Drop-off'
+2026-10-18 11:16:47,280 - visualization.charts - INFO - Creating bar chart figure: 'Campaign Name vs Click-Through Rate (CTR)'
+2026-10-18 11:16:47,335 - visualization.charts - INFO - Creating bar chart figure: 'Campaign Name vs Conversion Rate (%)'
+2026-10-18 11:16:47,389 - visualization.charts - INFO - Creating scatter chart figure: 'Spend vs Conversions Scatter (Cost Efficiency)'
+2026-10-18 11:16:47,426 - visualization.charts - INFO - Creating bar chart figure: 'Cost Per Click (CPC) by Campaign'
+2026-10-18 11:16:47,483 - visualization.charts - INFO - Creating pie chart figure: 'Spend Allocation by Campaign Objective'
+2026-10-18 11:16:47,515 - visualization.charts - INFO - Creating pie chart figure: 'Conversions Distribution by Objective'
+2026-10-18 11:16:47,549 - visualization.charts - INFO - Creating bar chart figure: 'Gender vs Conversion Rate'
+2026-10-18 11:16:47,591 - visualization.charts - INFO - Creating bar chart figure: 'Age Group vs Conversion Rate'
+2026-10-18 11:16:47,642 - visualization.charts - INFO - Creating bar chart figure: 'Device Type vs CTR'
+2026-10-18 11:16:47,684 - visualization.charts - INFO - Creating bar chart figure: 'Device Type vs Cost Per Click (CPC)'
+2026-10-18 11:16:47,728 - visualization.charts - INFO - Creating line chart figure: 'Daily Spend Trend Over Time'
+2026-10-18 11:16:47,763 - visualization.charts - INFO - Creating line chart figure: 'Daily Conversions Trend Over Time'
