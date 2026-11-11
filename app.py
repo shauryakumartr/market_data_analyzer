@@ -7,8 +7,9 @@ import logging
 from typing import Dict, Any, List, Optional, Union
 
 from config.settings import MAPPING_DROPDOWN_OPTIONS
-from Data.loader import file_load 
+from Data.loader import file_load
 from Data.filter import filter_data
+from Data.meta_api import fetch_meta_insights
 from mapping.column_mapper import map_columns
 from cleaning.data_cleaner import clean_data
 from validation.duplicate_validator import validate_no_duplicate_mappings
@@ -25,7 +26,9 @@ from insights.insight_engine import (
 )
 from insights.recommendation_engine import generate_recommendations
 from insights.summary_builder import build_ai_summary
-from ai.ai_engine import generate_ai_response
+from ai.ai_engine import generate_ai_response, generate_structured_ai_response
+from ai.embedder import embed_query
+from ai.top_k import top_k as retrieve_top_k
 from visualization.charts import (
     create_bar_chart,
     create_scatter_chart,
@@ -65,908 +68,1174 @@ logger = logging.getLogger(__name__)
 # Render Header Banner using .streamlit template component
 render_header_banner()
 
-# File Upload Section
-uploaded_file = st.file_uploader("Upload a CSV, PDF, or Excel (XLSX) file containing campaign data to begin:", type=["csv", "pdf", "xlsx", "xls"],accept_multiple_files=True,key="file_uploader")
+# ── Data Source Selector ────────────────────────────────────────────────────
+_SOURCE_FILE: str = "📁 Upload Local File (CSV / PDF / Excel)"
+_SOURCE_META: str = "🔗 Fetch Live from Meta Graph API"
 
-if uploaded_file:
-    for file in uploaded_file:
-     fname_lower=file.name
-     fname_lower = fname_lower.lower()
-     if not any(fname_lower.endswith(ext) for ext in [".csv", ".pdf", ".xlsx", ".xls"]):
-         st.error("Invalid Filetype. Please upload a CSV, PDF, or XLSX file.")
-         st.stop()
+data_source: str = st.radio(
+    "Select Data Source:",
+    options=[_SOURCE_FILE, _SOURCE_META],
+    horizontal=True,
+    key="data_source_selector",
+)
 
-    # Load raw data
-    try:
+# ── Sidebar: Reset / Change Data Source button ──────────────────────────────
+with st.sidebar:
+    st.divider()
+    if st.button("🔄 Reset / Change Data Source", key="reset_data_source"):
+        for _key in (
+            "api_df_raw", "analytics_view", "mapping_confirmed",
+            "user_mapping", "current_file_id",
+        ):
+            st.session_state.pop(_key, None)
+        st.rerun()
+
+# ── Resolve df_raw from session_state (Meta API path) ───────────────────────
+# After a successful Meta fetch, analytics_view is True and api_df_raw holds
+# the canonical DataFrame. Re-expose it as df_raw so the shared pipeline below
+# sees it on every rerun (e.g., when the user changes sidebar filters).
+if st.session_state.get("analytics_view") and "api_df_raw" in st.session_state:
+    df_raw: pd.DataFrame = st.session_state["api_df_raw"]
+
+# ════════════════════════════════════════════════════════════════════════════
+# MODE 1 — MANUAL FILE UPLOAD
+# ════════════════════════════════════════════════════════════════════════════
+if data_source == _SOURCE_FILE:
+    uploaded_file = st.file_uploader(
+        "Upload a CSV, PDF, or Excel (XLSX) file containing campaign data to begin:",
+        type=["csv", "pdf", "xlsx", "xls"],
+        accept_multiple_files=True,
+        key="file_uploader",
+    )
+
+    if uploaded_file:
         for file in uploaded_file:
-            temp_df = file_load(file, file.name.lower())
-            df_raw = pd.concat([df_raw, temp_df], ignore_index=True) if 'df_raw' in locals() else temp_df
-    except Exception as e:
-        logger.exception("Failed to load uploaded file")
-        st.error(f"Invalid file format or corrupted file: {e}")
-        st.stop()
+            fname_lower = file.name.lower()
+            if not any(fname_lower.endswith(ext) for ext in [".csv", ".pdf", ".xlsx", ".xls"]):
+                st.error("Invalid Filetype. Please upload a CSV, PDF, or XLSX file.")
+                st.stop()
 
-    # File state change detector
-    file_identifier = getattr(uploaded_file, "name", str(uploaded_file))
-    if "current_file_id" not in st.session_state or st.session_state.current_file_id != file_identifier:
-        st.session_state.current_file_id = file_identifier
-        st.session_state.mapping_confirmed = False
-        st.session_state.analytics_view = False
-        st.session_state.user_mapping = {}
-
-    # Session State Initialization for mappings
-    if "mapping_confirmed" not in st.session_state:
-        st.session_state.mapping_confirmed = False
-
-    if not st.session_state.mapping_confirmed:
-        predicted_mapping = map_columns(df_raw)
-        st.subheader("📋 Verify Column Mappings")
-        st.write("Ensure your CSV headers map to the correct canonical metrics used by the analyzer.")
-        
-        user_mapping = {}
-        with st.container(border=True):
-            col_left, col_right = st.columns(2)
-            with col_left:
-                st.markdown("**Your CSV Column**")
-            with col_right:
-                st.markdown("**Canonical Field**")
-
-            for column, predicted_alias in predicted_mapping.items():
-                c_left, c_right = st.columns(2)
-                with c_left:
-                    st.text(column)
-                with c_right:
-                    default_idx = (
-                        MAPPING_DROPDOWN_OPTIONS.index(predicted_alias)
-                        if predicted_alias in MAPPING_DROPDOWN_OPTIONS
-                        else 0
-                    )
-                    user_mapping[column] = st.selectbox(
-                        f"Select mapping for {column}",
-                        options=MAPPING_DROPDOWN_OPTIONS,
-                        key=f"column_mapper_{column}",
-                        index=default_idx,
-                        label_visibility="collapsed"
-                    )
-
-        if st.button("Confirm Mappings and Initialize Dashboard", type="primary"):
-            # Check for duplicate mappings
-            dup_report = validate_no_duplicate_mappings(user_mapping)
-            if not dup_report['is_valid']:
-                st.error(
-                    f"Duplicate mappings found for canonical fields: {dup_report['duplicate_mappings']}. "
-                    "Each canonical field must be mapped to at most one CSV column."
-                )
-            else:
-                # Store user mapping configurations in session state
-                st.session_state.user_mapping = user_mapping
-                st.session_state.mapping_confirmed = True
-                st.rerun()
-
-    # Analytics View State Management
-    if "analytics_view" not in st.session_state:
-        st.session_state.analytics_view = False
-
-    if st.session_state.mapping_confirmed and not st.session_state.analytics_view:
-        st.success("Mapping confirmed successfully!")
-        if st.button("Open Analysis Suite", type="primary"):
-            st.session_state.analytics_view = True
-            st.rerun()
-
-    if st.session_state.analytics_view:
-        # Build mapped dataframe using stored mapping
-        user_mapping = st.session_state.get("user_mapping", {})
-        
-        # Filter mapping to exclude Ignore Column or None/Custom and ensure column exists in df_raw
-        rename_dict = {}
-        columns_to_keep = []
-        for orig, canonical in user_mapping.items():
-            if canonical not in (None, "Ignore Column", "Custom Column") and orig in df_raw.columns:
-                rename_dict[orig] = canonical
-                columns_to_keep.append(orig)
-        
-        if columns_to_keep:
-            df_mapped = df_raw[columns_to_keep].rename(columns=rename_dict)
-        else:
-            df_mapped = df_raw.copy()
-
-        # Run Data Cleaning Pipeline (coercing datatypes, cleaning string numbers/currencies/percentages before validation & analytics)
-        df_cleaned = clean_data(df_mapped)
-
-        # Run Validation Pipeline on cleaned dataset
-        validation_report = run_validation(df_cleaned)
-        if not validation_report['is_valid']:
-            st.error("Uploaded dataset failed critical structural validation checks.")
-            with st.expander("Show Validation Report Details", expanded=True):
-                st.write(validation_report)
+        # Load raw data
+        try:
+            for file in uploaded_file:
+                temp_df = file_load(file, file.name.lower())
+                df_raw = pd.concat([df_raw, temp_df], ignore_index=True) if 'df_raw' in locals() else temp_df
+        except Exception as e:
+            logger.exception("Failed to load uploaded file")
+            st.error(f"Invalid file format or corrupted file: {e}")
             st.stop()
 
-        # Display non-blocking warnings in sidebar/top-bar
-        with st.sidebar:
-            st.header("⚡ Validation Logs")
-            if validation_report['duplicates']['duplicate_row_count'] > 0:
-                st.warning(f"⚠️ {validation_report['duplicates']['duplicate_row_count']} Duplicate Rows found.")
-            if len(validation_report['missing']['rows_excessive_missing_idx']) > 0:
-                st.warning(f"⚠️ {len(validation_report['missing']['rows_excessive_missing_idx'])} columns >50% empty.")
-            if not validation_report['duplicates']['duplicate_row_count'] and not len(validation_report['missing']['rows_excessive_missing_idx']):
-                st.success("✅ Structural integrity validated.")
+        # File state change detector
+        file_identifier = getattr(uploaded_file, "name", str(uploaded_file))
+        if "current_file_id" not in st.session_state or st.session_state.current_file_id != file_identifier:
+            st.session_state.current_file_id = file_identifier
+            st.session_state.mapping_confirmed = False
+            st.session_state.analytics_view = False
+            st.session_state.user_mapping = {}
 
-        # Derived metrics discrepancies workflow
-        metric_choice = "Calculated Metrics (Recommended)"
-        if validation_report['derived_metrics']['has_discrepancies']:
-            st.warning("⚠️ Discrepancies found between uploaded derived metrics and system-calculated values.")
-            with st.expander("Inspect Derived Metric Differences"):
-                discrepancies=validation_report['derived_metrics']['discrepancies']
-                for discrepancy in discrepancies:
-                    if discrepancies[discrepancy]:
-                     st.subheader(discrepancy.upper())
-                     st.dataframe(pd.DataFrame(discrepancies[discrepancy]), use_container_width=True)
-            metric_choice = st.radio(
-                "Source derived metrics to use for analysis:",
-                options=["Calculated Metrics (Recommended)", "Uploaded Metrics"],
-                key="derived_metric_choice"
+# ════════════════════════════════════════════════════════════════════════════
+# MODE 2 — META GRAPH API
+# ════════════════════════════════════════════════════════════════════════════
+elif data_source == _SOURCE_META:
+    # Only show the credentials form when analytics haven't been loaded yet
+    if not st.session_state.get("analytics_view"):
+        with st.container(border=True):
+            st.markdown("#### 🔗 Connect to Meta Graph API")
+            st.caption(
+                "Provide your Meta Ad Account ID and a User Access Token with "
+                "``ads_read`` permission. Data is fetched fresh on each new connection."
             )
 
-        
+            meta_col1, meta_col2 = st.columns(2)
+            with meta_col1:
+                ad_account_id_input: str = st.text_input(
+                    "Meta Ad Account ID",
+                    placeholder="e.g., 1234567890 or act_1234567890",
+                    key="meta_account_id",
+                )
+            with meta_col2:
+                access_token_input: str = st.text_input(
+                    "Meta User Access Token (ads_read)",
+                    type="password",
+                    placeholder="Paste your Meta Graph API token...",
+                    key="meta_access_token",
+                )
 
-        # Run anomaly detection module
-        anom_res = detect_anomalies_new(df_cleaned)
-        anomalies = anom_res['index_map']
+            # Date configuration
+            date_mode: str = st.radio(
+                "Date Range Mode:",
+                options=["Preset Range", "Custom Date Range"],
+                horizontal=True,
+                key="meta_date_mode",
+            )
 
-        # Filters Sidebar setup
-        st.sidebar.header("🎯 Filters")
-        st.sidebar.write("Refine campaign data:")
-        
-        # Guard filters for column existence
-        objectives = ["All"]
-        if 'objective' in df_cleaned.columns:
-            objectives += list(df_cleaned['objective'].dropna().unique())
-        campaign_objective_filter = st.sidebar.selectbox("Campaign Objective", options=objectives, key='campaign_filter')
+            meta_date_preset: str = "last_30d"
+            meta_start_date: Optional[str] = None
+            meta_end_date: Optional[str] = None
 
-        devices = list(df_cleaned['device'].dropna().unique()) if 'device' in df_cleaned.columns else []
-        device_filter = st.sidebar.multiselect("Device", options=devices, default=devices, key='device_filter')
+            if date_mode == "Preset Range":
+                meta_date_preset = st.selectbox(
+                    "Date Preset",
+                    options=["last_7d", "last_14d", "last_30d", "last_90d", "maximum"],
+                    index=2,
+                    key="meta_date_preset",
+                )
+            else:
+                date_col1, date_col2 = st.columns(2)
+                with date_col1:
+                    _start = st.date_input("Start Date", key="meta_start_date")
+                    meta_start_date = str(_start)
+                with date_col2:
+                    _end = st.date_input("End Date", key="meta_end_date")
+                    meta_end_date = str(_end)
 
-        genders = list(df_cleaned['gender'].dropna().unique()) if 'gender' in df_cleaned.columns else []
-        gender_filter = st.sidebar.multiselect("Gender", options=genders, default=genders, key='gender_filter')
+            meta_include_demographics: bool = st.checkbox(
+                "Include Age & Gender Cohort Breakdowns",
+                value=True,
+                key="meta_include_demographics",
+                help="Breaks down results by age and gender for cohort analysis in Tabs 2 and beyond.",
+            )
 
-        age_groups = list(df_cleaned['age_group'].dropna().unique()) if 'age_group' in df_cleaned.columns else []
-        age_group_filter = st.sidebar.multiselect("Age Group", options=age_groups, default=age_groups, key='age_group_filter')
+            if st.button("Fetch Campaign Data & Initialize Dashboard", type="primary", key="meta_fetch_btn"):
+                if not ad_account_id_input.strip():
+                    st.error("Please enter a Meta Ad Account ID.")
+                elif not access_token_input.strip():
+                    st.error("Please enter a Meta User Access Token.")
+                else:
+                    with st.spinner("Connecting to Meta Graph API and pulling campaign insights..."):
+                        try:
+                            api_df: pd.DataFrame = fetch_meta_insights(
+                                ad_account_id=ad_account_id_input.strip(),
+                                access_token=access_token_input.strip(),
+                                date_preset=meta_date_preset,
+                                start_date=meta_start_date,
+                                end_date=meta_end_date,
+                                include_demographics=meta_include_demographics,
+                            )
+                            if api_df.empty:
+                                st.warning(
+                                    "No campaign data found for this Ad Account and date range. "
+                                    "Try a broader date range or verify the account has active campaigns."
+                                )
+                            else:
+                                # Persist fetched DataFrame in session_state to
+                                # survive filter interactions and widget reruns
+                                st.session_state["api_df_raw"] = api_df
+                                # Identity key for change detection
+                                _preset_label = (
+                                    f"{meta_start_date}_{meta_end_date}"
+                                    if meta_start_date and meta_end_date
+                                    else meta_date_preset
+                                )
+                                st.session_state["current_file_id"] = (
+                                    f"meta_{ad_account_id_input.strip()}_{_preset_label}"
+                                )
+                                # Meta API already returns canonical columns —
+                                # map every column to itself, skip the mapping UI
+                                st.session_state["user_mapping"] = {
+                                    col: col for col in api_df.columns
+                                }
+                                st.session_state["mapping_confirmed"] = True
+                                st.session_state["analytics_view"] = True
+                                logger.info(
+                                    "Meta API fetch successful. %d rows ingested for account %s.",
+                                    len(api_df),
+                                    ad_account_id_input.strip(),
+                                )
+                                st.rerun()
+                        except (ValueError, RuntimeError) as api_err:
+                            logger.error("Meta API ingestion failed: %s", api_err)
+                            st.error(f"❌ Meta API Error: {api_err}")
+                        except Exception as unexpected_err:
+                            logger.exception("Unexpected error during Meta API fetch")
+                            st.error(f"❌ Unexpected error: {unexpected_err}")
 
-        campaign_names = list(df_cleaned['campaign_name'].dropna().unique()) if 'campaign_name' in df_cleaned.columns else []
-        campaign_name_filter = st.sidebar.multiselect("Campaign Name", options=campaign_names, default=campaign_names, key='campaign_name_filter')
+# Session State Initialization for mappings (Meta path)
+if "mapping_confirmed" not in st.session_state:
+    st.session_state.mapping_confirmed = False
 
-        # Date Range Filter
-        if 'date' in df_cleaned.columns and len(df_cleaned) > 0:
-            min_date = df_cleaned['date'].min()
-            max_date = df_cleaned['date'].max()
-            start_date = st.sidebar.date_input("Start Date", value=min_date, min_value=min_date, max_value=max_date, key='start_date_filter')
-            end_date = st.sidebar.date_input("End Date", value=max_date, min_value=start_date, max_value=max_date, key='end_date_filter')
+if not st.session_state.mapping_confirmed:
+    predicted_mapping = map_columns(df_raw)
+    st.subheader("📋 Verify Column Mappings")
+    st.write("Ensure your CSV headers map to the correct canonical metrics used by the analyzer.")
+    
+    user_mapping = {}
+    with st.container(border=True):
+        col_left, col_right = st.columns(2)
+        with col_left:
+            st.markdown("**Your CSV Column**")
+        with col_right:
+            st.markdown("**Canonical Field**")
+
+        for column, predicted_alias in predicted_mapping.items():
+            c_left, c_right = st.columns(2)
+            with c_left:
+                st.text(column)
+            with c_right:
+                default_idx = (
+                    MAPPING_DROPDOWN_OPTIONS.index(predicted_alias)
+                    if predicted_alias in MAPPING_DROPDOWN_OPTIONS
+                    else 0
+                )
+                user_mapping[column] = st.selectbox(
+                    f"Select mapping for {column}",
+                    options=MAPPING_DROPDOWN_OPTIONS,
+                    key=f"column_mapper_{column}",
+                    index=default_idx,
+                    label_visibility="collapsed"
+                )
+
+    if st.button("Confirm Mappings and Initialize Dashboard", type="primary"):
+        # Check for duplicate mappings
+        dup_report = validate_no_duplicate_mappings(user_mapping)
+        if not dup_report['is_valid']:
+            st.error(
+                f"Duplicate mappings found for canonical fields: {dup_report['duplicate_mappings']}. "
+                "Each canonical field must be mapped to at most one CSV column."
+            )
         else:
-            start_date = None
-            end_date = None
+            # Store user mapping configurations in session state
+            st.session_state.user_mapping = user_mapping
+            st.session_state.mapping_confirmed = True
+            st.rerun()
 
-        # Apply filtering
-        df_filtered = filter_data(
-            df=df_cleaned,
-            campaign_objective=campaign_objective_filter,
-            devices=device_filter,
-            genders=gender_filter,
-            age_groups=age_group_filter,
-            campaign_names=campaign_name_filter,
-            start_date=start_date,
-            end_date=end_date
+# Analytics View State Management
+if "analytics_view" not in st.session_state:
+    st.session_state.analytics_view = False
+
+if st.session_state.mapping_confirmed and not st.session_state.analytics_view:
+    st.success("Mapping confirmed successfully!")
+    if st.button("Open Analysis Suite", type="primary"):
+        st.session_state.analytics_view = True
+        st.rerun()
+
+if st.session_state.analytics_view:
+    # Build mapped dataframe using stored mapping
+    user_mapping = st.session_state.get("user_mapping", {})
+    
+    # Filter mapping to exclude Ignore Column or None/Custom and ensure column exists in df_raw
+    rename_dict = {}
+    columns_to_keep = []
+    for orig, canonical in user_mapping.items():
+        if canonical not in (None, "Ignore Column", "Custom Column") and orig in df_raw.columns:
+            rename_dict[orig] = canonical
+            columns_to_keep.append(orig)
+    
+    if columns_to_keep:
+        df_mapped = df_raw[columns_to_keep].rename(columns=rename_dict)
+    else:
+        df_mapped = df_raw.copy()
+
+    # Run Data Cleaning Pipeline (coercing datatypes, cleaning string numbers/currencies/percentages before validation & analytics)
+    df_cleaned = clean_data(df_mapped)
+
+    # Run Validation Pipeline on cleaned dataset
+    validation_report = run_validation(df_cleaned)
+    if not validation_report['is_valid']:
+        st.error("Uploaded dataset failed critical structural validation checks.")
+        with st.expander("Show Validation Report Details", expanded=True):
+            st.write(validation_report)
+        st.stop()
+
+    # Display non-blocking warnings in sidebar/top-bar
+    with st.sidebar:
+        st.header("⚡ Validation Logs")
+        if validation_report['duplicates']['duplicate_row_count'] > 0:
+            st.warning(f"⚠️ {validation_report['duplicates']['duplicate_row_count']} Duplicate Rows found.")
+        if len(validation_report['missing']['rows_excessive_missing_idx']) > 0:
+            st.warning(f"⚠️ {len(validation_report['missing']['rows_excessive_missing_idx'])} columns >50% empty.")
+        if not validation_report['duplicates']['duplicate_row_count'] and not len(validation_report['missing']['rows_excessive_missing_idx']):
+            st.success("✅ Structural integrity validated.")
+
+    # Derived metrics discrepancies workflow
+    metric_choice = "Calculated Metrics (Recommended)"
+    if validation_report['derived_metrics']['has_discrepancies']:
+        st.warning("⚠️ Discrepancies found between uploaded derived metrics and system-calculated values.")
+        with st.expander("Inspect Derived Metric Differences"):
+            discrepancies=validation_report['derived_metrics']['discrepancies']
+            for discrepancy in discrepancies:
+                if discrepancies[discrepancy]:
+                 st.subheader(discrepancy.upper())
+                 st.dataframe(pd.DataFrame(discrepancies[discrepancy]), use_container_width=True)
+        metric_choice = st.radio(
+            "Source derived metrics to use for analysis:",
+            options=["Calculated Metrics (Recommended)", "Uploaded Metrics"],
+            key="derived_metric_choice"
         )
 
-        if df_filtered.empty:
-            st.warning("No data matches current filters. Please adjust selection settings.")
-            st.stop()
+    
 
-        # Run Restructured Analytics Engine (all derived metrics calculated internally)
-        analytics_report = run_analytics_pipeline(df_filtered, metric_choice=metric_choice)
-        
-        # Prepare graph data
-        graph_data = prepare_graph_data(df_filtered)
+    # Run anomaly detection module
+    anom_res = detect_anomalies_new(df_cleaned)
+    anomalies = anom_res['index_map']
 
-        # Map variables for UI compatibility
-        basic_kpis = analytics_report['kpis']
-        campaign_report = analytics_report['campaigns']
-        audience_report = analytics_report['audience']
-        device_report = analytics_report['devices']
-        objective_report = analytics_report['objectives']
-        
-        # Helper functions to convert campaign names to dataframe indexes for UI compat
-        def get_campaign_index(name: Optional[str]) -> Optional[Any]:
-            if not name or df_filtered.empty:
-                return None
-            matches: pd.DataFrame = df_filtered[df_filtered['campaign_name'] == name]
-            return matches.index[0] if not matches.empty else None
+    # Filters Sidebar setup
+    st.sidebar.header("🎯 Filters")
+    st.sidebar.write("Refine campaign data:")
+    
+    # Guard filters for column existence
+    objectives = ["All"]
+    if 'objective' in df_cleaned.columns:
+        objectives += list(df_cleaned['objective'].dropna().unique())
+    campaign_objective_filter = st.sidebar.selectbox("Campaign Objective", options=objectives, key='campaign_filter')
 
-        def get_campaign_indexes(names: List[str]) -> pd.Index:
-            if not names or df_filtered.empty:
-                return pd.Index([])
-            return df_filtered[df_filtered['campaign_name'].isin(names)].index
+    devices = list(df_cleaned['device'].dropna().unique()) if 'device' in df_cleaned.columns else []
+    device_filter = st.sidebar.multiselect("Device", options=devices, default=devices, key='device_filter')
 
-        # Reconstruct performance comparison structure directly from campaign_report
-        top_c: Dict[str, Any] = campaign_report['top_campaigns']
-        bot_c: Dict[str, Any] = campaign_report['bottom_campaigns']
-        campaign_metrics: Dict[str, Any] = campaign_report['campaign_metrics']
-        
-        high_perf_names: List[str] = campaign_report.get('high_performers', [])
-        low_perf_names: List[str] = campaign_report.get('low_performers', [])
-        
-        # Low CTR and low landing page conversion names
-        account_avg_ctr: float = float(basic_kpis.get('ctr', 0.0))
-        account_avg_cvr: float = float(basic_kpis.get('conversion_rate', 0.0))
-        
-        low_ctr_names: List[str] = [name for name, m in campaign_metrics.items() if m.get('ctr', 0.0) <= account_avg_ctr]
-        low_lp_names: List[str] = [name for name, m in campaign_metrics.items() if m.get('conversion_rate', 0.0) <= account_avg_cvr]
+    genders = list(df_cleaned['gender'].dropna().unique()) if 'gender' in df_cleaned.columns else []
+    gender_filter = st.sidebar.multiselect("Gender", options=genders, default=genders, key='gender_filter')
 
-        perf_comparisons: Dict[str, Any] = {
-            'Best CTR': get_campaign_index(top_c['highest_ctr']['name']),
-            'Worst CTR': get_campaign_index(bot_c['lowest_ctr']['name']),
-            'Highest conversion campaign': get_campaign_index(top_c['highest_conversion_rate']['name']),
-            'Most expensive CPC': get_campaign_index(max(campaign_metrics.keys(), key=lambda k: campaign_metrics[k].get('cpc', 0.0))) if campaign_metrics else None,
-            'highest spend': get_campaign_index(top_c['highest_spend']['name']),
-            'Low performing campaigns': get_campaign_indexes(low_perf_names),
-            'High performing campaigns': get_campaign_indexes(high_perf_names),
-            'Low CTR campaigns': get_campaign_indexes(low_ctr_names),
-            'Low Landing page conversion campaign': get_campaign_indexes(low_lp_names),
+    age_groups = list(df_cleaned['age_group'].dropna().unique()) if 'age_group' in df_cleaned.columns else []
+    age_group_filter = st.sidebar.multiselect("Age Group", options=age_groups, default=age_groups, key='age_group_filter')
+
+    campaign_names = list(df_cleaned['campaign_name'].dropna().unique()) if 'campaign_name' in df_cleaned.columns else []
+    campaign_name_filter = st.sidebar.multiselect("Campaign Name", options=campaign_names, default=campaign_names, key='campaign_name_filter')
+
+    # Date Range Filter
+    if 'date' in df_cleaned.columns and len(df_cleaned) > 0:
+        min_date = df_cleaned['date'].min()
+        max_date = df_cleaned['date'].max()
+        start_date = st.sidebar.date_input("Start Date", value=min_date, min_value=min_date, max_value=max_date, key='start_date_filter')
+        end_date = st.sidebar.date_input("End Date", value=max_date, min_value=start_date, max_value=max_date, key='end_date_filter')
+    else:
+        start_date = None
+        end_date = None
+
+    # Apply filtering
+    df_filtered = filter_data(
+        df=df_cleaned,
+        campaign_objective=campaign_objective_filter,
+        devices=device_filter,
+        genders=gender_filter,
+        age_groups=age_group_filter,
+        campaign_names=campaign_name_filter,
+        start_date=start_date,
+        end_date=end_date
+    )
+
+    if df_filtered.empty:
+        st.warning("No data matches current filters. Please adjust selection settings.")
+        st.stop()
+
+    # Run Restructured Analytics Engine (all derived metrics calculated internally)
+    analytics_report = run_analytics_pipeline(df_filtered, metric_choice=metric_choice)
+    
+    # Prepare graph data
+    graph_data = prepare_graph_data(df_filtered)
+
+    # Map variables for UI compatibility
+    basic_kpis = analytics_report['kpis']
+    campaign_report = analytics_report['campaigns']
+    audience_report = analytics_report['audience']
+    device_report = analytics_report['devices']
+    objective_report = analytics_report['objectives']
+    
+    # Helper functions to convert campaign names to dataframe indexes for UI compat
+    def get_campaign_index(name: Optional[str]) -> Optional[Any]:
+        if not name or df_filtered.empty:
+            return None
+        matches: pd.DataFrame = df_filtered[df_filtered['campaign_name'] == name]
+        return matches.index[0] if not matches.empty else None
+
+    def get_campaign_indexes(names: List[str]) -> pd.Index:
+        if not names or df_filtered.empty:
+            return pd.Index([])
+        return df_filtered[df_filtered['campaign_name'].isin(names)].index
+
+    # Reconstruct performance comparison structure directly from campaign_report
+    top_c: Dict[str, Any] = campaign_report['top_campaigns']
+    bot_c: Dict[str, Any] = campaign_report['bottom_campaigns']
+    campaign_metrics: Dict[str, Any] = campaign_report['campaign_metrics']
+    
+    high_perf_names: List[str] = campaign_report.get('high_performers', [])
+    low_perf_names: List[str] = campaign_report.get('low_performers', [])
+    
+    # Low CTR and low landing page conversion names
+    account_avg_ctr: float = float(basic_kpis.get('ctr', 0.0))
+    account_avg_cvr: float = float(basic_kpis.get('conversion_rate', 0.0))
+    
+    low_ctr_names: List[str] = [name for name, m in campaign_metrics.items() if m.get('ctr', 0.0) <= account_avg_ctr]
+    low_lp_names: List[str] = [name for name, m in campaign_metrics.items() if m.get('conversion_rate', 0.0) <= account_avg_cvr]
+
+    perf_comparisons: Dict[str, Any] = {
+        'Best CTR': get_campaign_index(top_c['highest_ctr']['name']),
+        'Worst CTR': get_campaign_index(bot_c['lowest_ctr']['name']),
+        'Highest conversion campaign': get_campaign_index(top_c['highest_conversion_rate']['name']),
+        'Most expensive CPC': get_campaign_index(max(campaign_metrics.keys(), key=lambda k: campaign_metrics[k].get('cpc', 0.0))) if campaign_metrics else None,
+        'highest spend': get_campaign_index(top_c['highest_spend']['name']),
+        'Low performing campaigns': get_campaign_indexes(low_perf_names),
+        'High performing campaigns': get_campaign_indexes(high_perf_names),
+        'Low CTR campaigns': get_campaign_indexes(low_ctr_names),
+        'Low Landing page conversion campaign': get_campaign_indexes(low_lp_names),
+    }
+
+    # Format segment analysis structures
+    def dict_to_segment_df(data_dict: Dict[str, Any]) -> pd.DataFrame:
+        if not data_dict:
+            return pd.DataFrame()
+        df_seg: pd.DataFrame = pd.DataFrame(data_dict).T
+        rename_map: Dict[str, str] = {
+            'spend_inr': 'Total Spend',
+            'impressions': 'Total Impressions',
+            'clicks': 'Total Clicks',
+            'conversions': 'Total Conversions',
+            'ctr': 'Segment CTR',
+            'cpc': 'Segment CPC',
+            'conversion_rate': 'Segment Conversion Rate'
         }
+        df_seg.rename(columns=rename_map, inplace=True)
+        return df_seg
 
-        # Format segment analysis structures
-        def dict_to_segment_df(data_dict: Dict[str, Any]) -> pd.DataFrame:
-            if not data_dict:
-                return pd.DataFrame()
-            df_seg: pd.DataFrame = pd.DataFrame(data_dict).T
-            rename_map: Dict[str, str] = {
-                'spend_inr': 'Total Spend',
-                'impressions': 'Total Impressions',
-                'clicks': 'Total Clicks',
-                'conversions': 'Total Conversions',
-                'ctr': 'Segment CTR',
-                'cpc': 'Segment CPC',
-                'conversion_rate': 'Segment Conversion Rate'
-            }
-            df_seg.rename(columns=rename_map, inplace=True)
-            return df_seg
+    segmented_analysis = {
+        'age_segment': dict_to_segment_df(audience_report['age_analysis']),
+        'gender_segment': dict_to_segment_df(audience_report['gender_analysis']),
+        'device_segment': dict_to_segment_df(device_report['device_metrics']),
+        'objective_segment': dict_to_segment_df(objective_report['objective_metrics'])
+    }
 
-        segmented_analysis = {
-            'age_segment': dict_to_segment_df(audience_report['age_analysis']),
-            'gender_segment': dict_to_segment_df(audience_report['gender_analysis']),
-            'device_segment': dict_to_segment_df(device_report['device_metrics']),
-            'objective_segment': dict_to_segment_df(objective_report['objective_metrics'])
-        }
+    # Generate display-ready insights & recommendations
+    kpi_summary = generate_kpi_summary(basic_kpis)
+    best_perf_details = generate_best_performers(df_filtered, perf_comparisons)
+    under_perf, high_perf, low_ctr_perf = generate_performer_insights(df_filtered, perf_comparisons)
+    anomaly_insights = generate_anomaly_insights(df_filtered, anomalies)
+    recommendations = generate_recommendations(df_filtered, perf_comparisons, segmented_analysis)
+    
+    # Build AI Summary
+    ai_summary = build_ai_summary(
+        kpis=kpi_summary,
+        best_performance=best_perf_details,
+        anomalies=anomalies,
+        df=df_filtered,
+        recommendations=recommendations,
+        segmented_analysis=segmented_analysis
+    )
 
-        # Generate display-ready insights & recommendations
-        kpi_summary = generate_kpi_summary(basic_kpis)
-        best_perf_details = generate_best_performers(df_filtered, perf_comparisons)
-        under_perf, high_perf, low_ctr_perf = generate_performer_insights(df_filtered, perf_comparisons)
-        anomaly_insights = generate_anomaly_insights(df_filtered, anomalies)
-        recommendations = generate_recommendations(df_filtered, perf_comparisons, segmented_analysis)
+    # Layout Main Dashboard using Tabs
+    tab_overview, tab_cohorts, tab_recommendations, tab_ai, tab_audit, tab_charts = st.tabs([
+        "📊 Overview Dashboard",
+        "🧩 Cohorts & Segments",
+        "💡 Actionable Advice",
+        "🤖 AI Consultant",
+        "🚨 Diagnostics & Audit",
+        "📈 Comprehensive Charts & Analytics"
+    ])
+
+    # --- TAB 1: OVERVIEW DASHBOARD ---
+    with tab_overview:
+        st.markdown("### 📊 Executive Summary & Core KPIs")
         
-        # Build AI Summary
-        ai_summary = build_ai_summary(
-            kpis=kpi_summary,
-            best_performance=best_perf_details,
-            anomalies=anomalies,
-            df=df_filtered,
-            recommendations=recommendations,
-            segmented_analysis=segmented_analysis
+        # Primary Highlight KPIs
+        open_metric_primary()
+        kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
+        with kpi_col1:
+            st.metric(label="Total Ad Spend", value=f"₹{kpi_summary['Total Spend']:,.2f}")
+        with kpi_col2:
+            st.metric(label="Total Conversions", value=f"{int(kpi_summary['Total Conversions']):,}")
+        with kpi_col3:
+            st.metric(label="Average CTR", value=f"{kpi_summary['Average CTR']}%")
+        with kpi_col4:
+            st.metric(label="Conversion Rate", value=f"{kpi_summary['Conversion Effectiveness']}%")
+        close_metric_primary()
+
+        render_vertical_spacer()
+
+        # Secondary Operational KPIs
+        open_metric_secondary()
+        kpi_col5, kpi_col6, kpi_col7, kpi_col8, kpi_col9 = st.columns(5)
+        with kpi_col5:
+            st.metric(label="Total Impressions", value=f"{int(kpi_summary['Total Impressions']):,}")
+        with kpi_col6:
+            st.metric(label="Total Clicks", value=f"{int(kpi_summary['Total Clicks']):,}")
+        with kpi_col7:
+            st.metric(label="Total Reach", value=f"{int(kpi_summary['Total Reach']):,}")
+        with kpi_col8:
+            st.metric(label="Average CPC", value=f"₹{kpi_summary['Average CPC']:.2f}")
+        with kpi_col9:
+            st.metric(label="Average CPM", value=f"₹{kpi_summary['Average CPM']:.2f}")
+        close_metric_secondary()
+
+        st.divider()
+
+        # Best Performers Highlight Cards
+        st.subheader("🏆 Best Performing Campaigns")
+        best_cols = st.columns(len(best_perf_details))
+        for i, (basis, info) in enumerate(best_perf_details.items()):
+            with best_cols[i]:
+                with st.container(border=True):
+                    st.markdown(f"### Best Campaign by **{basis.replace('_', ' ').title()}**")
+                    st.markdown(f"**Name**: `{info['Name']}`")
+                    st.write(f"📅 Date: {info['Date']}")
+                    st.write(f"🎯 CTA: {info['CTA']}")
+                    col_stat1, col_stat2 = st.columns(2)
+                    with col_stat1:
+                        st.metric("Conversions", f"{int(info['Conversions'])}")
+                        st.metric("Spend", f"₹{info['Spend']:,.2f}")
+                    with col_stat2:
+                        st.metric("CTR (%)", f"{info['CTR'] * 100:.2f}%")
+                        st.metric("Clicks", f"{int(info['Clicks'])}")
+
+        st.divider()
+
+        # Visualizations Layout (Side by Side)
+        st.subheader("📉 Campaign Performance Visualizations")
+        col_chart1, col_chart2 = st.columns(2)
+        with col_chart1:
+            if 'campaign_name_vs_spend' in graph_data:
+                st.plotly_chart(
+                    create_bar_chart(
+                        graph_data['campaign_name_vs_spend'],
+                        x_label="Campaign Name",
+                        y_label="Total Spend (INR)",
+                        title="Campaign Name vs Spend"
+                    ),
+                    use_container_width=True
+                )
+        with col_chart2:
+            if 'campaign_name_vs_conversion_rate' in graph_data:
+                st.plotly_chart(
+                    create_bar_chart(
+                        graph_data['campaign_name_vs_conversion_rate'],
+                        x_label="Campaign Name",
+                        y_label="Conversion Rate (%)",
+                        title="Campaign Name vs Conversion Rate"
+                    ),
+                    use_container_width=True
+                )
+
+        col_chart3, col_chart4 = st.columns(2)
+        with col_chart3:
+            if 'spend_vs_conversions' in graph_data:
+                st.plotly_chart(
+                    create_scatter_chart(
+                        graph_data['spend_vs_conversions'],
+                        x_column="spend_inr",
+                        y_column="conversions",
+                        title="Spend vs Conversions (Cost Efficiency)",
+                        x_label="Spend (INR)",
+                        y_label="Conversions",
+                        size_column="conversions",
+                        color_column="conversions"
+                    ),
+                    use_container_width=True
+                )
+        with col_chart4:
+            if 'spend_over_time' in graph_data:
+                st.plotly_chart(
+                    create_line_chart(
+                        graph_data['spend_over_time'],
+                        x_label="Date",
+                        y_label="Total Spend (INR)",
+                        title="Spend Over Time (Timeline)"
+                    ),
+                    use_container_width=True
+                )
+
+    # --- TAB 2: COHORTS & SEGMENTS ---
+    with tab_cohorts:
+        st.subheader("🧩 Audience Cohorts breakdown")
+        
+        col_seg1, col_seg2 = st.columns(2)
+        with col_seg1:
+            st.markdown("#### Age Group Cohorts")
+            if not segmented_analysis['age_segment'].empty:
+                st.dataframe(segmented_analysis['age_segment'].sort_values(by='Segment CTR', ascending=False), use_container_width=True)
+        with col_seg2:
+            st.markdown("#### Gender Cohorts")
+            if not segmented_analysis['gender_segment'].empty:
+                st.dataframe(segmented_analysis['gender_segment'].sort_values(by='Segment CTR', ascending=False), use_container_width=True)
+
+        col_seg3, col_seg4 = st.columns(2)
+        with col_seg3:
+            st.markdown("#### Device Type Cohorts")
+            if not segmented_analysis['device_segment'].empty:
+                st.dataframe(segmented_analysis['device_segment'].sort_values(by='Segment CTR', ascending=False), use_container_width=True)
+        with col_seg4:
+            st.markdown("#### Marketing Objective Cohorts")
+            if not segmented_analysis['objective_segment'].empty:
+                st.dataframe(segmented_analysis['objective_segment'].sort_values(by='Segment CTR', ascending=False), use_container_width=True)
+
+        st.divider()
+        st.subheader("📊 Cohort Performance Graphs")
+        
+        col_g1, col_g2 = st.columns(2)
+        with col_g1:
+            if 'device_vs_conversion_rate' in graph_data:
+                st.plotly_chart(
+                    create_bar_chart(
+                        graph_data['device_vs_conversion_rate'],
+                        x_label="Device",
+                        y_label="Conversion Rate (%)",
+                        title="Conversion Rate by Device Type"
+                    ),
+                    use_container_width=True
+                )
+        with col_g2:
+            if 'gender_vs_ctr' in graph_data:
+                st.plotly_chart(
+                    create_bar_chart(
+                        graph_data['gender_vs_ctr'],
+                        x_label="Gender",
+                        y_label="CTR (%)",
+                        title="CTR by Gender Cohort"
+                    ),
+                    use_container_width=True
+                )
+
+        col_g3, col_g4 = st.columns(2)
+        with col_g3:
+            if 'age_group_vs_ctr' in graph_data:
+                st.plotly_chart(
+                    create_bar_chart(
+                        graph_data['age_group_vs_ctr'],
+                        x_label="Age Group",
+                        y_label="CTR (%)",
+                        title="CTR by Age Group Cohort"
+                    ),
+                    use_container_width=True
+                )
+        with col_g4:
+            if 'spend_distribution_by_objective' in graph_data:
+                st.plotly_chart(
+                    create_pie_chart(
+                        graph_data['spend_distribution_by_objective'],
+                        title="Spend Distribution by Campaign Objective",
+                        name_label="Objective"
+                    ),
+                    use_container_width=True
+                )
+
+    # --- TAB 3: ACTIONABLE ADVICE ---
+    with tab_recommendations:
+        st.subheader("💡 Strategic Recommendations & Interventions")
+
+        col_rec1, col_rec2 = st.columns(2)
+        with col_rec1:
+            with st.container(border=True):
+                st.markdown("### 💰 Budget Reallocation")
+                st.write("Increase budget allocations for these highly effective, cost-efficient campaigns:")
+                if recommendations['Budget Reallocation']:
+                    st.dataframe(pd.DataFrame(recommendations['Budget Reallocation']).T, use_container_width=True)
+                else:
+                    st.write("No campaigns identified for budget reallocation currently.")
+
+        with col_rec2:
+            with st.container(border=True):
+                st.markdown("### ⚠️ Spend Optimization")
+                st.write("Reduce budgets or refine targeting on these high-spend, low-conversion campaigns:")
+                if recommendations['Reduce Spend']:
+                    st.dataframe(pd.DataFrame(recommendations['Reduce Spend']).T, use_container_width=True)
+                else:
+                    st.write("No campaigns identified for spend reduction currently.")
+
+        col_rec3, col_rec4 = st.columns(2)
+        with col_rec3:
+            with st.container(border=True):
+                st.markdown("### 🎨 Creative Optimization")
+                st.write("These campaigns have below-average CTRs. Refresh ad creatives or copy text:")
+                if recommendations['Creative Optimization']:
+                    st.dataframe(pd.DataFrame(recommendations['Creative Optimization']).T, use_container_width=True)
+                else:
+                    st.write("No campaigns require creative updates currently.")
+
+        with col_rec4:
+            with st.container(border=True):
+                st.markdown("### 🕸️ Landing Page Optimization")
+                st.write("High interest (CTR) but low conversions. Improve landing page experience:")
+                if recommendations['Landing Page Optimization']:
+                    st.dataframe(pd.DataFrame(recommendations['Landing Page Optimization']).T, use_container_width=True)
+                else:
+                    st.write("No landing page bottlenecks detected currently.")
+
+        st.subheader("🎯 Top Performing Cohorts to Target")
+        with st.container(border=True):
+            col_tr1, col_tr2, col_tr3, col_tr4 = st.columns(4)
+            with col_tr1:
+                st.markdown("#### Gender Cohort")
+                st.dataframe(recommendations['Gender'])
+            with col_tr2:
+                st.markdown("#### Age Group")
+                st.dataframe(recommendations['Age'])
+            with col_tr3:
+                st.markdown("#### Device Type")
+                st.dataframe(recommendations['Device'])
+            with col_tr4:
+                st.markdown("#### Objective")
+                st.dataframe(recommendations['Campaign'])
+
+    # --- TAB 4: AI CONSULTANT ---
+    with tab_ai:
+        st.subheader("🤖 Ask Your Campaign AI Consultant")
+
+        # ── Cascading Campaign Filter ──────────────────────────────
+        # Step 1 → Objective  |  Step 2 → Campaign Name  |  Step 3 → Individual entries (with dates)
+        st.markdown("**🔍 Drill down to specific campaigns for your AI analysis:**")
+
+        has_objective_col: bool = 'objective' in df_filtered.columns
+        has_date_col: bool = 'date' in df_filtered.columns
+
+        # ── Step 1: Select Objective(s) ──
+        if has_objective_col:
+            all_objectives: List[str] = sorted(df_filtered['objective'].dropna().unique().tolist())
+            selected_objectives = st.multiselect(
+                "① Campaign Objective",
+                options=all_objectives,
+                default=all_objectives,
+                key="ai_obj_filter",
+                help="Filter by marketing objective first"
+            )
+            df_obj_filtered: pd.DataFrame = df_filtered[df_filtered['objective'].isin(selected_objectives)] if selected_objectives else df_filtered.head(0)
+        else:
+            selected_objectives = []
+            df_obj_filtered = df_filtered.copy()
+
+        # ── Step 2: Select Campaign Name(s) under chosen objectives ──
+        available_names: List[str] = sorted(df_obj_filtered['campaign_name'].dropna().unique().tolist()) if 'campaign_name' in df_obj_filtered.columns else []
+
+        # Build name labels with objective tag so same-named campaigns under different objectives are distinguishable
+        name_label_map: Dict[str, str] = {}
+        for cname in available_names:
+            camp_slice = df_obj_filtered[df_obj_filtered['campaign_name'] == cname]
+            if has_objective_col and not camp_slice['objective'].dropna().empty:
+                obj_tag = camp_slice['objective'].dropna().iloc[0]
+                label = f"{cname}  ·  [{obj_tag}]"
+            else:
+                label = cname
+            name_label_map[label] = cname
+
+        name_display: List[str] = list(name_label_map.keys())
+        selected_name_labels = st.multiselect(
+            "② Campaign Name",
+            options=name_display,
+            default=name_display,
+            key="ai_name_filter",
+            help="Pick one or more campaign names (objective shown in brackets)"
+        )
+        selected_cnames: List[str] = [name_label_map[lbl] for lbl in selected_name_labels]
+        df_name_filtered: pd.DataFrame = df_obj_filtered[df_obj_filtered['campaign_name'].isin(selected_cnames)] if selected_cnames else df_obj_filtered.head(0)
+
+        # ── Step 3: Select individual campaign entries with date ──
+        entry_labels: List[str] = []
+        entry_index_map: Dict[str, List[int]] = {}
+
+        if not df_name_filtered.empty:
+            group_cols = ['campaign_name', 'date'] if has_date_col else ['campaign_name']
+
+            for group_key, grp in df_name_filtered.groupby(group_cols, sort=True):
+                if has_date_col:
+                    cname_val, date_val = group_key
+                    date_str = str(date_val)[:10]
+                    if 'spend_inr' in grp.columns:
+                        label = f"{cname_val}  ·  📅 {date_str}  ·  ₹{grp['spend_inr'].sum():,.0f}"
+                    else:
+                        label = f"{cname_val}  ·  📅 {date_str}"
+                else:
+                    cname_val = group_key
+                    if 'spend_inr' in grp.columns:
+                        label = f"{cname_val}  ·  ₹{grp['spend_inr'].sum():,.0f}"
+                    else:
+                        label = str(cname_val)
+
+                # Deduplicate labels
+                base_label = label
+                counter = 2
+                while label in entry_index_map:
+                    label = f"{base_label} ({counter})"
+                    counter += 1
+                entry_labels.append(label)
+                entry_index_map[label] = grp.index.tolist()
+
+        selected_entry_labels = st.multiselect(
+            "③ Individual Campaign Entries",
+            options=entry_labels,
+            default=entry_labels,
+            key="ai_entry_filter",
+            help="Each entry shows: Campaign Name · Date · Spend — select specific runs to analyse"
         )
 
-        # Layout Main Dashboard using Tabs
-        tab_overview, tab_cohorts, tab_recommendations, tab_ai, tab_audit, tab_charts = st.tabs([
-            "📊 Overview Dashboard",
-            "🧩 Cohorts & Segments",
-            "💡 Actionable Advice",
-            "🤖 AI Consultant",
-            "🚨 Diagnostics & Audit",
-            "📈 Comprehensive Charts & Analytics"
-        ])
+        # Collect all selected row indices
+        selected_row_indices: List[int] = []
+        for elbl in selected_entry_labels:
+            selected_row_indices.extend(entry_index_map.get(elbl, []))
 
-        # --- TAB 1: OVERVIEW DASHBOARD ---
-        with tab_overview:
-            st.markdown("### 📊 Executive Summary & Core KPIs")
-            
-            # Primary Highlight KPIs
-            open_metric_primary()
-            kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
-            with kpi_col1:
-                st.metric(label="Total Ad Spend", value=f"₹{kpi_summary['Total Spend']:,.2f}")
-            with kpi_col2:
-                st.metric(label="Total Conversions", value=f"{int(kpi_summary['Total Conversions']):,}")
-            with kpi_col3:
-                st.metric(label="Average CTR", value=f"{kpi_summary['Average CTR']}%")
-            with kpi_col4:
-                st.metric(label="Conversion Rate", value=f"{kpi_summary['Conversion Effectiveness']}%")
-            close_metric_primary()
+        # Final selected campaign names for downstream use
+        selected_campaigns: List[str] = list(
+            df_filtered.loc[df_filtered.index.isin(selected_row_indices), 'campaign_name'].dropna().unique()
+        ) if selected_row_indices else []
 
-            render_vertical_spacer()
+        if selected_entry_labels:
+            st.caption(f"📌 {len(selected_entry_labels)} of {len(entry_labels)} entries selected across {len(selected_campaigns)} campaign(s)")
+        else:
+            st.warning("⚠️ No campaign entries selected. Please select at least one.")
 
-            # Secondary Operational KPIs
-            open_metric_secondary()
-            kpi_col5, kpi_col6, kpi_col7, kpi_col8, kpi_col9 = st.columns(5)
-            with kpi_col5:
-                st.metric(label="Total Impressions", value=f"{int(kpi_summary['Total Impressions']):,}")
-            with kpi_col6:
-                st.metric(label="Total Clicks", value=f"{int(kpi_summary['Total Clicks']):,}")
-            with kpi_col7:
-                st.metric(label="Total Reach", value=f"{int(kpi_summary['Total Reach']):,}")
-            with kpi_col8:
-                st.metric(label="Average CPC", value=f"₹{kpi_summary['Average CPC']:.2f}")
-            with kpi_col9:
-                st.metric(label="Average CPM", value=f"₹{kpi_summary['Average CPM']:.2f}")
-            close_metric_secondary()
+        st.divider()
+        st.write("Ask a question or request a copy rewrite based on your selected campaigns:")
 
+        prompt = st.text_area(
+            "Question/Prompt:",
+            placeholder="Which target audience segment is performing best, and what should we optimize next?",
+            height=120
+        )
+
+        if st.button("Consult AI Assistant", type="primary"):
+            if not selected_campaigns:
+                st.warning("Please select at least one campaign before consulting the AI.")
+            elif not prompt.strip():
+                st.warning("Please enter a question or query.")
+            else:
+                with st.spinner("AI is evaluating campaign metrics..."):
+                    try:
+                        # ── Build quantitative metrics block ──────────────────
+                        # Filter campaign_metrics to only the selected campaigns
+                        quant_lines: List[str] = []
+                        for cname in selected_campaigns:
+                            m: Dict[str, Any] = campaign_metrics.get(cname, {})
+                            if m:
+                                quant_lines.append(
+                                    f"Campaign: {cname}\n"
+                                    f"  Spend: ₹{m.get('spend_inr', 0):,.2f} | "
+                                    f"Impressions: {int(m.get('impressions', 0)):,} | "
+                                    f"Clicks: {int(m.get('clicks', 0)):,} | "
+                                    f"Conversions: {int(m.get('conversions', 0)):,}\n"
+                                    f"  CTR: {m.get('ctr', 0):.4f} | "
+                                    f"CPC: ₹{m.get('cpc', 0):.2f} | "
+                                    f"Conversion Rate: {m.get('conversion_rate', 0):.4f}"
+                                )
+                        quantitative_metrics_str: str = (
+                            "\n\n".join(quant_lines)
+                            if quant_lines
+                            else "No campaign metrics available for selected campaigns."
+                        )
+
+                        # ── Build qualitative insights block ──────────────────
+                        qual_parts: List[str] = []
+
+                        # Anomaly flags
+                        anomaly_flags: List[str] = []
+                        for anom_type, indexes in anomalies.items():
+                            flagged = [
+                                df_filtered.loc[idx, 'campaign_name']
+                                for idx in indexes
+                                if idx in df_filtered.index
+                                and df_filtered.loc[idx, 'campaign_name'] in selected_campaigns
+                            ]
+                            if flagged:
+                                anomaly_flags.append(f"{anom_type}: {', '.join(set(str(x) for x in flagged))}")
+                        if anomaly_flags:
+                            qual_parts.append("Anomalies Detected:\n" + "\n".join(f"  - {f}" for f in anomaly_flags))
+
+                        # Recommendation flags
+                        rec_flags: List[str] = []
+                        for rec_category in ['Budget Reallocation', 'Reduce Spend', 'Creative Optimization', 'Landing Page Optimization']:
+                            rec_data = recommendations.get(rec_category, {})
+                            if isinstance(rec_data, dict):
+                                flagged_recs = [k for k in rec_data if k in selected_campaigns]
+                                if flagged_recs:
+                                    rec_flags.append(f"{rec_category}: {', '.join(flagged_recs)}")
+                        if rec_flags:
+                            qual_parts.append("Recommendation Flags:\n" + "\n".join(f"  - {f}" for f in rec_flags))
+
+                        # Performer classification
+                        if any(c in high_perf_names for c in selected_campaigns):
+                            top_names = [c for c in selected_campaigns if c in high_perf_names]
+                            qual_parts.append(f"High Performers: {', '.join(top_names)}")
+                        if any(c in low_perf_names for c in selected_campaigns):
+                            bot_names = [c for c in selected_campaigns if c in low_perf_names]
+                            qual_parts.append(f"Low Performers: {', '.join(bot_names)}")
+                        if any(c in low_ctr_names for c in selected_campaigns):
+                            lc_names = [c for c in selected_campaigns if c in low_ctr_names]
+                            qual_parts.append(f"Below-Average CTR: {', '.join(lc_names)}")
+
+                        qualitative_insights_str: str = (
+                            "\n\n".join(qual_parts)
+                            if qual_parts
+                            else "No specific qualitative flags raised for selected campaigns."
+                        )
+
+                        # ── RAG: retrieve copywriting framework rules ─────────
+                        rag_results: List[Dict[str, Any]] = []
+                        try:
+                            query_embedding = embed_query(prompt.strip())
+                            # embed_query returns embeddings object; extract values
+                            if hasattr(query_embedding, '__iter__') and not isinstance(query_embedding, list):
+                                # Handle Gemini embeddings object (list of ContentEmbedding)
+                                raw = query_embedding
+                                if hasattr(raw[0], 'values'):
+                                    query_vec: List[float] = raw[0].values
+                                else:
+                                    query_vec = list(raw[0])
+                            else:
+                                first = query_embedding[0] if query_embedding else []
+                                query_vec = first.values if hasattr(first, 'values') else list(first)
+                            rag_results = retrieve_top_k(query_vec, k=5)
+                        except Exception as rag_err:
+                            logger.warning("RAG retrieval failed (continuing without framework rules): %s", rag_err)
+
+                        # ── Call structured AI engine ─────────────────────────
+                        ai_response = generate_structured_ai_response(
+                            user_query=prompt.strip(),
+                            quantitative_metrics=quantitative_metrics_str,
+                            qualitative_insights=qualitative_insights_str,
+                            top_k_results=rag_results,
+                        )
+                        st.markdown("### 🤖 Consultant Response:")
+                        st.markdown(ai_response)
+
+                    except Exception as e:
+                        logger.exception("Structured AI generation failed")
+                        st.error(f"AI generation failed: {e}")
+
+    # --- TAB 5: DIAGNOSTICS & AUDIT ---
+    with tab_audit:
+        st.subheader("🚨 Business Logic & Data Discrepancy Audits")
+
+        #Qualitative Analysis
+        st.markdown("#### Qualitative Data Insights")
+        s=text_analysis(df_filtered)
+        st.write(s)
+
+
+        # Duplicate row reports
+        st.markdown("#### Duplicates Inspection")
+        if validation_report['duplicates']['duplicate_row_count'] > 0:
+            st.warning(f"Found {validation_report['duplicates']['duplicate_row_count']} completely identical rows.")
+            if 'duplicate_rows_data' in validation_report['duplicates']:
+                st.dataframe(validation_report['duplicates']['duplicate_rows_data'], use_container_width=True)
+        else:
+            st.success("No duplicate rows found.")
+
+        # Missing value reports
+        st.markdown("#### Missing Field Inspection")
+        with st.expander("Inspect Missing Value Densities"):
+            for missing in (validation_report['missing']):
+                if validation_report['missing'][missing] and type(validation_report['missing'][missing]) != bool:
+                    st.dataframe(validation_report['missing'][missing])
+
+        # Business anomalies
+        st.markdown("#### Logical Anomalies Detected")
+        anom_found = False
+        for anom_type, details in anomaly_insights.items():
+            if details:
+                anom_found = True
+                with st.expander(anom_type):
+                    st.dataframe(pd.DataFrame(details).T, use_container_width=True)
+        if not anom_found:
+            st.success("No campaign-level logical anomalies detected in cleaned dataset.")
+        st.markdown("#### Detailed Diagnostic Pipeline Logs")
+        with st.expander("Open Validation Pipeline Outputs"):
+         st.write(validation_report)
+
+        st.divider()
+        
+        # Rankings
+        st.subheader("📊 Full Cohort Rankings Data")
+        with st.expander("High Performing Campaigns"):
+            st.dataframe(pd.DataFrame(high_perf).T, use_container_width=True)
+        with st.expander("Underperforming Campaigns"):
+            st.dataframe(pd.DataFrame(under_perf).T, use_container_width=True)
+        with st.expander("Low CTR Campaigns"):
+            st.dataframe(pd.DataFrame(low_ctr_perf).T, use_container_width=True)
+         
+        #Full Dataframe
+        st.subheader("Entire Filtered Dataset")
+        with st.expander("View Complete Filtered Data"):
+            st.dataframe(df_raw, use_container_width=True)
+
+    # --- TAB 6: COMPREHENSIVE CHARTS & ANALYTICS ---
+    with tab_charts:
+        st.subheader("📈 Comprehensive Graphical Analytics")
+        st.write("Complete visual analysis across all representable marketing quantities and performance dimensions.")
+
+        # Section 1: Funnel & Conversion Flow
+        st.markdown("### 🎯 Funnel & Conversion Journey")
+        funnel_data = analytics_report.get('funnel', {}).get('stages', {})
+        if funnel_data:
+            st.plotly_chart(
+                create_funnel_chart(funnel_data, title="Multi-Stage Marketing Funnel Conversion & Drop-off"),
+                use_container_width=True
+            )
+
+        col_f1, col_f2 = st.columns(2)
+        with col_f1:
+            if 'campaign_name_vs_ctr' in graph_data:
+                st.plotly_chart(
+                    create_bar_chart(
+                        graph_data['campaign_name_vs_ctr'],
+                        x_label="Campaign Name",
+                        y_label="CTR (%)",
+                        title="Campaign Name vs Click-Through Rate (CTR)"
+                    ),
+                    use_container_width=True
+                )
+        with col_f2:
+            if 'campaign_name_vs_conversion_rate' in graph_data:
+                st.plotly_chart(
+                    create_bar_chart(
+                        graph_data['campaign_name_vs_conversion_rate'],
+                        x_label="Campaign Name",
+                        y_label="Conversion Rate (%)",
+                        title="Campaign Name vs Conversion Rate (%)"
+                    ),
+                    use_container_width=True
+                )
+
+        st.divider()
+
+        # Section 2: Financial & Cost Efficiency Charts
+        st.markdown("### 💰 Financial & Cost Efficiency Analytics")
+        col_c1, col_c2 = st.columns(2)
+        with col_c1:
+            if 'spend_vs_conversions' in graph_data:
+                st.plotly_chart(
+                    create_scatter_chart(
+                        graph_data['spend_vs_conversions'],
+                        x_column="spend_inr",
+                        y_column="conversions",
+                        title="Spend vs Conversions Scatter (Cost Efficiency)",
+                        x_label="Spend (INR)",
+                        y_label="Conversions"
+                    ),
+                    use_container_width=True
+                )
+        with col_c2:
+            if 'campaign_name_vs_cpc' in graph_data:
+                st.plotly_chart(
+                    create_bar_chart(
+                        graph_data['campaign_name_vs_cpc'],
+                        x_label="Campaign Name",
+                        y_label="CPC (INR)",
+                        title="Cost Per Click (CPC) by Campaign"
+                    ),
+                    use_container_width=True
+                )
+
+        col_c3, col_c4 = st.columns(2)
+        with col_c3:
+            if 'spend_distribution_by_objective' in graph_data:
+                st.plotly_chart(
+                    create_pie_chart(
+                        graph_data['spend_distribution_by_objective'],
+                        title="Spend Allocation by Campaign Objective",
+                        name_label="Objective"
+                    ),
+                    use_container_width=True
+                )
+        with col_c4:
+            if 'conversions_distribution_by_objective' in graph_data:
+                st.plotly_chart(
+                    create_pie_chart(
+                        graph_data['conversions_distribution_by_objective'],
+                        title="Conversions Distribution by Objective",
+                        name_label="Objective"
+                    ),
+                    use_container_width=True
+                )
+
+        st.divider()
+
+        # Section 3: Demographic & Cohort Performance
+        st.markdown("### 🧩 Demographic & Segment Visual Breakdowns")
+        col_d1, col_d2 = st.columns(2)
+        with col_d1:
+            if 'gender_vs_conversion_rate' in graph_data:
+                st.plotly_chart(
+                    create_bar_chart(
+                        graph_data['gender_vs_conversion_rate'],
+                        x_label="Gender",
+                        y_label="Conversion Rate (%)",
+                        title="Gender vs Conversion Rate"
+                    ),
+                    use_container_width=True
+                )
+        with col_d2:
+            if 'age_group_vs_conversion_rate' in graph_data:
+                st.plotly_chart(
+                    create_bar_chart(
+                        graph_data['age_group_vs_conversion_rate'],
+                        x_label="Age Group",
+                        y_label="Conversion Rate (%)",
+                        title="Age Group vs Conversion Rate"
+                    ),
+                    use_container_width=True
+                )
+
+        col_d3, col_d4 = st.columns(2)
+        with col_d3:
+            if 'device_vs_ctr' in graph_data:
+                st.plotly_chart(
+                    create_bar_chart(
+                        graph_data['device_vs_ctr'],
+                        x_label="Device",
+                        y_label="CTR (%)",
+                        title="Device Type vs CTR"
+                    ),
+                    use_container_width=True
+                )
+        with col_d4:
+            if 'device_vs_cpc' in graph_data:
+                st.plotly_chart(
+                    create_bar_chart(
+                        graph_data['device_vs_cpc'],
+                        x_label="Device",
+                        y_label="CPC (INR)",
+                        title="Device Type vs Cost Per Click (CPC)"
+                    ),
+                    use_container_width=True
+                )
+
+        # Section 4: Time-Series Trends
+        if 'spend_over_time' in graph_data or 'conversions_over_time' in graph_data:
             st.divider()
-
-            # Best Performers Highlight Cards
-            st.subheader("🏆 Best Performing Campaigns")
-            best_cols = st.columns(len(best_perf_details))
-            for i, (basis, info) in enumerate(best_perf_details.items()):
-                with best_cols[i]:
-                    with st.container(border=True):
-                        st.markdown(f"### Best Campaign by **{basis.replace('_', ' ').title()}**")
-                        st.markdown(f"**Name**: `{info['Name']}`")
-                        st.write(f"📅 Date: {info['Date']}")
-                        st.write(f"🎯 CTA: {info['CTA']}")
-                        col_stat1, col_stat2 = st.columns(2)
-                        with col_stat1:
-                            st.metric("Conversions", f"{int(info['Conversions'])}")
-                            st.metric("Spend", f"₹{info['Spend']:,.2f}")
-                        with col_stat2:
-                            st.metric("CTR (%)", f"{info['CTR'] * 100:.2f}%")
-                            st.metric("Clicks", f"{int(info['Clicks'])}")
-
-            st.divider()
-
-            # Visualizations Layout (Side by Side)
-            st.subheader("📉 Campaign Performance Visualizations")
-            col_chart1, col_chart2 = st.columns(2)
-            with col_chart1:
-                if 'campaign_name_vs_spend' in graph_data:
-                    st.plotly_chart(
-                        create_bar_chart(
-                            graph_data['campaign_name_vs_spend'],
-                            x_label="Campaign Name",
-                            y_label="Total Spend (INR)",
-                            title="Campaign Name vs Spend"
-                        ),
-                        use_container_width=True
-                    )
-            with col_chart2:
-                if 'campaign_name_vs_conversion_rate' in graph_data:
-                    st.plotly_chart(
-                        create_bar_chart(
-                            graph_data['campaign_name_vs_conversion_rate'],
-                            x_label="Campaign Name",
-                            y_label="Conversion Rate (%)",
-                            title="Campaign Name vs Conversion Rate"
-                        ),
-                        use_container_width=True
-                    )
-
-            col_chart3, col_chart4 = st.columns(2)
-            with col_chart3:
-                if 'spend_vs_conversions' in graph_data:
-                    st.plotly_chart(
-                        create_scatter_chart(
-                            graph_data['spend_vs_conversions'],
-                            x_column="spend_inr",
-                            y_column="conversions",
-                            title="Spend vs Conversions (Cost Efficiency)",
-                            x_label="Spend (INR)",
-                            y_label="Conversions",
-                            size_column="conversions",
-                            color_column="conversions"
-                        ),
-                        use_container_width=True
-                    )
-            with col_chart4:
+            st.markdown("### 📅 Time-Series Performance Trends")
+            col_t1, col_t2 = st.columns(2)
+            with col_t1:
                 if 'spend_over_time' in graph_data:
                     st.plotly_chart(
                         create_line_chart(
                             graph_data['spend_over_time'],
                             x_label="Date",
-                            y_label="Total Spend (INR)",
-                            title="Spend Over Time (Timeline)"
+                            y_label="Spend (INR)",
+                            title="Daily Spend Trend Over Time"
                         ),
                         use_container_width=True
                     )
-
-        # --- TAB 2: COHORTS & SEGMENTS ---
-        with tab_cohorts:
-            st.subheader("🧩 Audience Cohorts breakdown")
-            
-            col_seg1, col_seg2 = st.columns(2)
-            with col_seg1:
-                st.markdown("#### Age Group Cohorts")
-                if not segmented_analysis['age_segment'].empty:
-                    st.dataframe(segmented_analysis['age_segment'].sort_values(by='Segment CTR', ascending=False), use_container_width=True)
-            with col_seg2:
-                st.markdown("#### Gender Cohorts")
-                if not segmented_analysis['gender_segment'].empty:
-                    st.dataframe(segmented_analysis['gender_segment'].sort_values(by='Segment CTR', ascending=False), use_container_width=True)
-
-            col_seg3, col_seg4 = st.columns(2)
-            with col_seg3:
-                st.markdown("#### Device Type Cohorts")
-                if not segmented_analysis['device_segment'].empty:
-                    st.dataframe(segmented_analysis['device_segment'].sort_values(by='Segment CTR', ascending=False), use_container_width=True)
-            with col_seg4:
-                st.markdown("#### Marketing Objective Cohorts")
-                if not segmented_analysis['objective_segment'].empty:
-                    st.dataframe(segmented_analysis['objective_segment'].sort_values(by='Segment CTR', ascending=False), use_container_width=True)
-
-            st.divider()
-            st.subheader("📊 Cohort Performance Graphs")
-            
-            col_g1, col_g2 = st.columns(2)
-            with col_g1:
-                if 'device_vs_conversion_rate' in graph_data:
+            with col_t2:
+                if 'conversions_over_time' in graph_data:
                     st.plotly_chart(
-                        create_bar_chart(
-                            graph_data['device_vs_conversion_rate'],
-                            x_label="Device",
-                            y_label="Conversion Rate (%)",
-                            title="Conversion Rate by Device Type"
+                        create_line_chart(
+                            graph_data['conversions_over_time'],
+                            x_label="Date",
+                            y_label="Conversions",
+                            title="Daily Conversions Trend Over Time"
                         ),
                         use_container_width=True
                     )
-            with col_g2:
-                if 'gender_vs_ctr' in graph_data:
-                    st.plotly_chart(
-                        create_bar_chart(
-                            graph_data['gender_vs_ctr'],
-                            x_label="Gender",
-                            y_label="CTR (%)",
-                            title="CTR by Gender Cohort"
-                        ),
-                        use_container_width=True
-                    )
+if 'df_raw' not in locals():
+    # App landing info when neither mode has loaded data yet
+    st.info(
+        "👋 Choose a data source above to begin — "
+        "upload a local campaign file or connect to Meta Graph API live."
+    )
 
-            col_g3, col_g4 = st.columns(2)
-            with col_g3:
-                if 'age_group_vs_ctr' in graph_data:
-                    st.plotly_chart(
-                        create_bar_chart(
-                            graph_data['age_group_vs_ctr'],
-                            x_label="Age Group",
-                            y_label="CTR (%)",
-                            title="CTR by Age Group Cohort"
-                        ),
-                        use_container_width=True
-                    )
-            with col_g4:
-                if 'spend_distribution_by_objective' in graph_data:
-                    st.plotly_chart(
-                        create_pie_chart(
-                            graph_data['spend_distribution_by_objective'],
-                            title="Spend Distribution by Campaign Objective",
-                            name_label="Objective"
-                        ),
-                        use_container_width=True
-                    )
-
-        # --- TAB 3: ACTIONABLE ADVICE ---
-        with tab_recommendations:
-            st.subheader("💡 Strategic Recommendations & Interventions")
-
-            col_rec1, col_rec2 = st.columns(2)
-            with col_rec1:
-                with st.container(border=True):
-                    st.markdown("### 💰 Budget Reallocation")
-                    st.write("Increase budget allocations for these highly effective, cost-efficient campaigns:")
-                    if recommendations['Budget Reallocation']:
-                        st.dataframe(pd.DataFrame(recommendations['Budget Reallocation']).T, use_container_width=True)
-                    else:
-                        st.write("No campaigns identified for budget reallocation currently.")
-
-            with col_rec2:
-                with st.container(border=True):
-                    st.markdown("### ⚠️ Spend Optimization")
-                    st.write("Reduce budgets or refine targeting on these high-spend, low-conversion campaigns:")
-                    if recommendations['Reduce Spend']:
-                        st.dataframe(pd.DataFrame(recommendations['Reduce Spend']).T, use_container_width=True)
-                    else:
-                        st.write("No campaigns identified for spend reduction currently.")
-
-            col_rec3, col_rec4 = st.columns(2)
-            with col_rec3:
-                with st.container(border=True):
-                    st.markdown("### 🎨 Creative Optimization")
-                    st.write("These campaigns have below-average CTRs. Refresh ad creatives or copy text:")
-                    if recommendations['Creative Optimization']:
-                        st.dataframe(pd.DataFrame(recommendations['Creative Optimization']).T, use_container_width=True)
-                    else:
-                        st.write("No campaigns require creative updates currently.")
-
-            with col_rec4:
-                with st.container(border=True):
-                    st.markdown("### 🕸️ Landing Page Optimization")
-                    st.write("High interest (CTR) but low conversions. Improve landing page experience:")
-                    if recommendations['Landing Page Optimization']:
-                        st.dataframe(pd.DataFrame(recommendations['Landing Page Optimization']).T, use_container_width=True)
-                    else:
-                        st.write("No landing page bottlenecks detected currently.")
-
-            st.subheader("🎯 Top Performing Cohorts to Target")
-            with st.container(border=True):
-                col_tr1, col_tr2, col_tr3, col_tr4 = st.columns(4)
-                with col_tr1:
-                    st.markdown("#### Gender Cohort")
-                    st.dataframe(recommendations['Gender'])
-                with col_tr2:
-                    st.markdown("#### Age Group")
-                    st.dataframe(recommendations['Age'])
-                with col_tr3:
-                    st.markdown("#### Device Type")
-                    st.dataframe(recommendations['Device'])
-                with col_tr4:
-                    st.markdown("#### Objective")
-                    st.dataframe(recommendations['Campaign'])
-
-        # --- TAB 4: AI CONSULTANT ---
-        with tab_ai:
-            st.subheader("🤖 Ask Your Campaign AI Consultant")
-
-            # ── Cascading Campaign Filter ──────────────────────────────
-            # Step 1 → Objective  |  Step 2 → Campaign Name  |  Step 3 → Individual entries (with dates)
-            st.markdown("**🔍 Drill down to specific campaigns for your AI analysis:**")
-
-            has_objective_col: bool = 'objective' in df_filtered.columns
-            has_date_col: bool = 'date' in df_filtered.columns
-
-            # ── Step 1: Select Objective(s) ──
-            if has_objective_col:
-                all_objectives: List[str] = sorted(df_filtered['objective'].dropna().unique().tolist())
-                selected_objectives = st.multiselect(
-                    "① Campaign Objective",
-                    options=all_objectives,
-                    default=all_objectives,
-                    key="ai_obj_filter",
-                    help="Filter by marketing objective first"
-                )
-                df_obj_filtered: pd.DataFrame = df_filtered[df_filtered['objective'].isin(selected_objectives)] if selected_objectives else df_filtered.head(0)
-            else:
-                selected_objectives = []
-                df_obj_filtered = df_filtered.copy()
-
-            # ── Step 2: Select Campaign Name(s) under chosen objectives ──
-            available_names: List[str] = sorted(df_obj_filtered['campaign_name'].dropna().unique().tolist()) if 'campaign_name' in df_obj_filtered.columns else []
-
-            # Build name labels with objective tag so same-named campaigns under different objectives are distinguishable
-            name_label_map: Dict[str, str] = {}
-            for cname in available_names:
-                camp_slice = df_obj_filtered[df_obj_filtered['campaign_name'] == cname]
-                if has_objective_col and not camp_slice['objective'].dropna().empty:
-                    obj_tag = camp_slice['objective'].dropna().iloc[0]
-                    label = f"{cname}  ·  [{obj_tag}]"
-                else:
-                    label = cname
-                name_label_map[label] = cname
-
-            name_display: List[str] = list(name_label_map.keys())
-            selected_name_labels = st.multiselect(
-                "② Campaign Name",
-                options=name_display,
-                default=name_display,
-                key="ai_name_filter",
-                help="Pick one or more campaign names (objective shown in brackets)"
-            )
-            selected_cnames: List[str] = [name_label_map[lbl] for lbl in selected_name_labels]
-            df_name_filtered: pd.DataFrame = df_obj_filtered[df_obj_filtered['campaign_name'].isin(selected_cnames)] if selected_cnames else df_obj_filtered.head(0)
-
-            # ── Step 3: Select individual campaign entries with date ──
-            entry_labels: List[str] = []
-            entry_index_map: Dict[str, List[int]] = {}
-
-            if not df_name_filtered.empty:
-                group_cols = ['campaign_name', 'date'] if has_date_col else ['campaign_name']
-
-                for group_key, grp in df_name_filtered.groupby(group_cols, sort=True):
-                    if has_date_col:
-                        cname_val, date_val = group_key
-                        date_str = str(date_val)[:10]
-                        if 'spend_inr' in grp.columns:
-                            label = f"{cname_val}  ·  📅 {date_str}  ·  ₹{grp['spend_inr'].sum():,.0f}"
-                        else:
-                            label = f"{cname_val}  ·  📅 {date_str}"
-                    else:
-                        cname_val = group_key
-                        if 'spend_inr' in grp.columns:
-                            label = f"{cname_val}  ·  ₹{grp['spend_inr'].sum():,.0f}"
-                        else:
-                            label = str(cname_val)
-
-                    # Deduplicate labels
-                    base_label = label
-                    counter = 2
-                    while label in entry_index_map:
-                        label = f"{base_label} ({counter})"
-                        counter += 1
-                    entry_labels.append(label)
-                    entry_index_map[label] = grp.index.tolist()
-
-            selected_entry_labels = st.multiselect(
-                "③ Individual Campaign Entries",
-                options=entry_labels,
-                default=entry_labels,
-                key="ai_entry_filter",
-                help="Each entry shows: Campaign Name · Date · Spend — select specific runs to analyse"
-            )
-
-            # Collect all selected row indices
-            selected_row_indices: List[int] = []
-            for elbl in selected_entry_labels:
-                selected_row_indices.extend(entry_index_map.get(elbl, []))
-
-            # Final selected campaign names for downstream use
-            selected_campaigns: List[str] = list(
-                df_filtered.loc[df_filtered.index.isin(selected_row_indices), 'campaign_name'].dropna().unique()
-            ) if selected_row_indices else []
-
-            if selected_entry_labels:
-                st.caption(f"📌 {len(selected_entry_labels)} of {len(entry_labels)} entries selected across {len(selected_campaigns)} campaign(s)")
-            else:
-                st.warning("⚠️ No campaign entries selected. Please select at least one.")
-
-            st.divider()
-            st.write("Inquire about custom segments, correlations, or request copy suggestions based on your data:")
-
-            prompt = st.text_area("Question/Prompt:", placeholder="Which target audience segment is performing best, and what should we optimize next?", height=120)
-            if st.button("Consult AI Assistant", type="primary"):
-                if not selected_campaigns:
-                    st.warning("Please select at least one campaign before consulting the AI.")
-                elif prompt.strip():
-                    with st.spinner("AI is evaluating campaign metrics..."):
-                        try:
-                            ai_response = generate_ai_response(prompt, ai_summary)
-                            st.markdown("### 🤖 Consultant Response:")
-                            st.write(ai_response)
-                        except Exception as e:
-                            st.error(f"AI generation failed: {e}")
-                else:
-                    st.warning("Please enter a question or query.")
-
-        # --- TAB 5: DIAGNOSTICS & AUDIT ---
-        with tab_audit:
-            st.subheader("🚨 Business Logic & Data Discrepancy Audits")
-
-            #Qualitative Analysis
-            st.markdown("#### Qualitative Data Insights")
-            s=text_analysis(df_filtered)
-            st.write(s)
-
-
-            # Duplicate row reports
-            st.markdown("#### Duplicates Inspection")
-            if validation_report['duplicates']['duplicate_row_count'] > 0:
-                st.warning(f"Found {validation_report['duplicates']['duplicate_row_count']} completely identical rows.")
-                if 'duplicate_rows_data' in validation_report['duplicates']:
-                    st.dataframe(validation_report['duplicates']['duplicate_rows_data'], use_container_width=True)
-            else:
-                st.success("No duplicate rows found.")
-
-            # Missing value reports
-            st.markdown("#### Missing Field Inspection")
-            with st.expander("Inspect Missing Value Densities"):
-                for missing in (validation_report['missing']):
-                    if validation_report['missing'][missing] and type(validation_report['missing'][missing]) != bool:
-                        st.dataframe(validation_report['missing'][missing])
-
-            # Business anomalies
-            st.markdown("#### Logical Anomalies Detected")
-            anom_found = False
-            for anom_type, details in anomaly_insights.items():
-                if details:
-                    anom_found = True
-                    with st.expander(anom_type):
-                        st.dataframe(pd.DataFrame(details).T, use_container_width=True)
-            if not anom_found:
-                st.success("No campaign-level logical anomalies detected in cleaned dataset.")
-            st.markdown("#### Detailed Diagnostic Pipeline Logs")
-            with st.expander("Open Validation Pipeline Outputs"):
-             st.write(validation_report)
-
-            st.divider()
-            
-            # Rankings
-            st.subheader("📊 Full Cohort Rankings Data")
-            with st.expander("High Performing Campaigns"):
-                st.dataframe(pd.DataFrame(high_perf).T, use_container_width=True)
-            with st.expander("Underperforming Campaigns"):
-                st.dataframe(pd.DataFrame(under_perf).T, use_container_width=True)
-            with st.expander("Low CTR Campaigns"):
-                st.dataframe(pd.DataFrame(low_ctr_perf).T, use_container_width=True)
-             
-            #Full Dataframe
-            st.subheader("Entire Filtered Dataset")
-            with st.expander("View Complete Filtered Data"):
-                st.dataframe(df_raw, use_container_width=True)
-
-        # --- TAB 6: COMPREHENSIVE CHARTS & ANALYTICS ---
-        with tab_charts:
-            st.subheader("📈 Comprehensive Graphical Analytics")
-            st.write("Complete visual analysis across all representable marketing quantities and performance dimensions.")
-
-            # Section 1: Funnel & Conversion Flow
-            st.markdown("### 🎯 Funnel & Conversion Journey")
-            funnel_data = analytics_report.get('funnel', {}).get('stages', {})
-            if funnel_data:
-                st.plotly_chart(
-                    create_funnel_chart(funnel_data, title="Multi-Stage Marketing Funnel Conversion & Drop-off"),
-                    use_container_width=True
-                )
-
-            col_f1, col_f2 = st.columns(2)
-            with col_f1:
-                if 'campaign_name_vs_ctr' in graph_data:
-                    st.plotly_chart(
-                        create_bar_chart(
-                            graph_data['campaign_name_vs_ctr'],
-                            x_label="Campaign Name",
-                            y_label="CTR (%)",
-                            title="Campaign Name vs Click-Through Rate (CTR)"
-                        ),
-                        use_container_width=True
-                    )
-            with col_f2:
-                if 'campaign_name_vs_conversion_rate' in graph_data:
-                    st.plotly_chart(
-                        create_bar_chart(
-                            graph_data['campaign_name_vs_conversion_rate'],
-                            x_label="Campaign Name",
-                            y_label="Conversion Rate (%)",
-                            title="Campaign Name vs Conversion Rate (%)"
-                        ),
-                        use_container_width=True
-                    )
-
-            st.divider()
-
-            # Section 2: Financial & Cost Efficiency Charts
-            st.markdown("### 💰 Financial & Cost Efficiency Analytics")
-            col_c1, col_c2 = st.columns(2)
-            with col_c1:
-                if 'spend_vs_conversions' in graph_data:
-                    st.plotly_chart(
-                        create_scatter_chart(
-                            graph_data['spend_vs_conversions'],
-                            x_column="spend_inr",
-                            y_column="conversions",
-                            title="Spend vs Conversions Scatter (Cost Efficiency)",
-                            x_label="Spend (INR)",
-                            y_label="Conversions"
-                        ),
-                        use_container_width=True
-                    )
-            with col_c2:
-                if 'campaign_name_vs_cpc' in graph_data:
-                    st.plotly_chart(
-                        create_bar_chart(
-                            graph_data['campaign_name_vs_cpc'],
-                            x_label="Campaign Name",
-                            y_label="CPC (INR)",
-                            title="Cost Per Click (CPC) by Campaign"
-                        ),
-                        use_container_width=True
-                    )
-
-            col_c3, col_c4 = st.columns(2)
-            with col_c3:
-                if 'spend_distribution_by_objective' in graph_data:
-                    st.plotly_chart(
-                        create_pie_chart(
-                            graph_data['spend_distribution_by_objective'],
-                            title="Spend Allocation by Campaign Objective",
-                            name_label="Objective"
-                        ),
-                        use_container_width=True
-                    )
-            with col_c4:
-                if 'conversions_distribution_by_objective' in graph_data:
-                    st.plotly_chart(
-                        create_pie_chart(
-                            graph_data['conversions_distribution_by_objective'],
-                            title="Conversions Distribution by Objective",
-                            name_label="Objective"
-                        ),
-                        use_container_width=True
-                    )
-
-            st.divider()
-
-            # Section 3: Demographic & Cohort Performance
-            st.markdown("### 🧩 Demographic & Segment Visual Breakdowns")
-            col_d1, col_d2 = st.columns(2)
-            with col_d1:
-                if 'gender_vs_conversion_rate' in graph_data:
-                    st.plotly_chart(
-                        create_bar_chart(
-                            graph_data['gender_vs_conversion_rate'],
-                            x_label="Gender",
-                            y_label="Conversion Rate (%)",
-                            title="Gender vs Conversion Rate"
-                        ),
-                        use_container_width=True
-                    )
-            with col_d2:
-                if 'age_group_vs_conversion_rate' in graph_data:
-                    st.plotly_chart(
-                        create_bar_chart(
-                            graph_data['age_group_vs_conversion_rate'],
-                            x_label="Age Group",
-                            y_label="Conversion Rate (%)",
-                            title="Age Group vs Conversion Rate"
-                        ),
-                        use_container_width=True
-                    )
-
-            col_d3, col_d4 = st.columns(2)
-            with col_d3:
-                if 'device_vs_ctr' in graph_data:
-                    st.plotly_chart(
-                        create_bar_chart(
-                            graph_data['device_vs_ctr'],
-                            x_label="Device",
-                            y_label="CTR (%)",
-                            title="Device Type vs CTR"
-                        ),
-                        use_container_width=True
-                    )
-            with col_d4:
-                if 'device_vs_cpc' in graph_data:
-                    st.plotly_chart(
-                        create_bar_chart(
-                            graph_data['device_vs_cpc'],
-                            x_label="Device",
-                            y_label="CPC (INR)",
-                            title="Device Type vs Cost Per Click (CPC)"
-                        ),
-                        use_container_width=True
-                    )
-
-            # Section 4: Time-Series Trends
-            if 'spend_over_time' in graph_data or 'conversions_over_time' in graph_data:
-                st.divider()
-                st.markdown("### 📅 Time-Series Performance Trends")
-                col_t1, col_t2 = st.columns(2)
-                with col_t1:
-                    if 'spend_over_time' in graph_data:
-                        st.plotly_chart(
-                            create_line_chart(
-                                graph_data['spend_over_time'],
-                                x_label="Date",
-                                y_label="Spend (INR)",
-                                title="Daily Spend Trend Over Time"
-                            ),
-                            use_container_width=True
-                        )
-                with col_t2:
-                    if 'conversions_over_time' in graph_data:
-                        st.plotly_chart(
-                            create_line_chart(
-                                graph_data['conversions_over_time'],
-                                x_label="Date",
-                                y_label="Conversions",
-                                title="Daily Conversions Trend Over Time"
-                            ),
-                            use_container_width=True
-                        )
-else:
-    # App landing info when no file is uploaded
-    st.info("👋 Upload a campaign CSV file in the selector widget to start the analysis pipeline.")
-    
     with st.container(border=True):
         st.subheader("💡 Dashboard Features Include:")
         col_landing1, col_landing2, col_landing3 = st.columns(3)
         with col_landing1:
             st.markdown("#### 1. Mapping & Validation")
-            st.write("Dynamic column mapping helps ingest any layout format, running structural audits for clean records.")
+            st.write(
+                "Dynamic column mapping helps ingest any layout format, "
+                "running structural audits for clean records."
+            )
         with col_landing2:
             st.markdown("#### 2. Advanced Segmentations")
-            st.write("Aggregates campaign performances by Age Group, Gender, Device, and Objectives automatically.")
+            st.write(
+                "Aggregates campaign performances by Age Group, Gender, "
+                "Device, and Objectives automatically."
+            )
         with col_landing3:
             st.markdown("#### 3. AI Insights")
-            st.write("Leverages Google Gemini models to answer business questions instantly.")
+            st.write(
+                "Leverages the Direct-Response Media Buyer prompt template "
+                "and RAG-retrieved copywriting frameworks to deliver "
+                "actionable creative and media buying recommendations."
+            )
+

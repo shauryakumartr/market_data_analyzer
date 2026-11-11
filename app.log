@@ -148,3 +148,56 @@
 2026-10-18 11:16:47,684 - visualization.charts - INFO - Creating bar chart figure: 'Device Type vs Cost Per Click (CPC)'
 2026-10-18 11:16:47,728 - visualization.charts - INFO - Creating line chart figure: 'Daily Spend Trend Over Time'
 2026-10-18 11:16:47,763 - visualization.charts - INFO - Creating line chart figure: 'Daily Conversions Trend Over Time'
+2026-11-11 13:17:06,523 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-11-11 13:17:20,945 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-11-11 13:17:23,985 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-11-11 13:17:43,548 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-11-11 13:17:54,966 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-11-11 13:18:02,287 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-11-11 13:18:02,291 - Data.meta_api - INFO - Initiating Meta Graph API fetch | account=act_1653488692891592 | preset=last_30d | start=None | end=None | demographics=True
+2026-11-11 13:18:02,291 - Data.meta_api - INFO - Fetching page 1 from Meta API: https://graph.facebook.com/v20.0/act_1653488692891592/insights
+2026-11-11 13:18:03,442 - __main__ - ERROR - Meta API ingestion failed: Meta API returned HTTP 403 on page 1: 403 Client Error: Forbidden for url: https://graph.facebook.com/v20.0/act_1653488692891592/insights?access_token=EAAXf1tYuD8gBS1kVMCSbfxXqqlGdCr36BbW4ZCG55v01fgefIZBKh70ppHSqj5kZBAHWakdC3rhskd0oWfaVeDZA4qlP2SOeZBtgTiM9CcIWvgwRqoIsZCvgj5CNfkQgAngnNaJ2Dpodxn8VkgTLhzwpd7RyXxdoxD3vZBDyVV1fvUA3sZBwKc6CGDIjHKHKsyUaxnHD&level=campaign&time_increment=1&fields=campaign_name%2Cobjective%2Cspend%2Cimpressions%2Cclicks%2Creach%2Cactions%2Cctr%2Ccpc%2Ccpm%2Cdate_start&limit=500&breakdowns=age%2Cgender&date_preset=last_30d
+2026-11-11 13:18:04,024 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-11-11 13:18:04,029 - Data.meta_api - INFO - Initiating Meta Graph API fetch | account=act_1653488692891592 | preset=last_30d | start=None | end=None | demographics=True
+2026-11-11 13:18:04,029 - Data.meta_api - INFO - Fetching page 1 from Meta API: https://graph.facebook.com/v20.0/act_1653488692891592/insights
+2026-11-11 13:18:05,072 - __main__ - ERROR - Meta API ingestion failed: Meta API returned HTTP 403 on page 1: 403 Client Error: Forbidden for url: https://graph.facebook.com/v20.0/act_1653488692891592/insights?access_token=EAAXf1tYuD8gBS1kVMCSbfxXqqlGdCr36BbW4ZCG55v01fgefIZBKh70ppHSqj5kZBAHWakdC3rhskd0oWfaVeDZA4qlP2SOeZBtgTiM9CcIWvgwRqoIsZCvgj5CNfkQgAngnNaJ2Dpodxn8VkgTLhzwpd7RyXxdoxD3vZBDyVV1fvUA3sZBwKc6CGDIjHKHKsyUaxnHD&level=campaign&time_increment=1&fields=campaign_name%2Cobjective%2Cspend%2Cimpressions%2Cclicks%2Creach%2Cactions%2Cctr%2Ccpc%2Ccpm%2Cdate_start&limit=500&breakdowns=age%2Cgender&date_preset=last_30d
+2026-11-11 13:19:35,176 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-11-11 13:20:08,862 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-11-11 13:20:12,912 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-11-11 13:20:12,915 - Data.meta_api - INFO - Initiating Meta Graph API fetch | account=act_1653488692891592 | preset=last_30d | start=None | end=None | demographics=True
+2026-11-11 13:20:12,915 - Data.meta_api - INFO - Fetching page 1 from Meta API: https://graph.facebook.com/v20.0/act_1653488692891592/insights
+2026-11-11 13:20:14,484 - Data.meta_api - WARNING - Demographics breakdown rejected by Meta API ([HTTP 403] Meta Graph API error (code 200, subcode 0): (#200) Ad account owner has NOT grant ads_management or ads_read permission, refer to https://developers.facebook.com/docs/marketing-api/get-started/authorization/#permissions-and-features for details.). Retrying without demographic breakdowns.
+2026-11-11 13:20:14,485 - Data.meta_api - WARNING - Retrying Meta API fetch without demographic breakdowns.
+2026-11-11 13:20:14,485 - Data.meta_api - INFO - Fetching page 1 from Meta API: https://graph.facebook.com/v20.0/act_1653488692891592/insights
+2026-11-11 13:20:15,711 - Data.meta_api - ERROR - Fallback fetch (no demographics) also failed: [HTTP 403] Meta Graph API error (code 200, subcode 0): (#200) Ad account owner has NOT grant ads_management or ads_read permission, refer to https://developers.facebook.com/docs/marketing-api/get-started/authorization/#permissions-and-features for details.
+2026-11-11 13:20:15,711 - __main__ - ERROR - Meta API ingestion failed: [HTTP 403] Meta Graph API error (code 200, subcode 0): (#200) Ad account owner has NOT grant ads_management or ads_read permission, refer to https://developers.facebook.com/docs/marketing-api/get-started/authorization/#permissions-and-features for details.
+2026-11-11 14:54:48,269 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-11-11 15:12:32,572 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-11-11 15:13:08,019 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-11-11 15:26:11,031 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-11-11 15:26:23,136 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-11-11 15:26:23,394 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-11-11 15:26:23,398 - Data.meta_api - INFO - Initiating Meta Graph API fetch | account=act_1141259672210201 | preset=last_30d | start=None | end=None | demographics=True
+2026-11-11 15:26:23,398 - Data.meta_api - INFO - Fetching page 1 from Meta API: https://graph.facebook.com/v20.0/act_1141259672210201/insights
+2026-11-11 15:26:25,250 - Data.meta_api - INFO - Pagination complete. Total records fetched: 0 across 1 page(s).
+2026-11-11 15:26:25,251 - Data.meta_api - WARNING - Retrying Meta API fetch without demographic breakdowns.
+2026-11-11 15:26:25,251 - Data.meta_api - INFO - Fetching page 1 from Meta API: https://graph.facebook.com/v20.0/act_1141259672210201/insights
+2026-11-11 15:26:26,454 - Data.meta_api - INFO - Pagination complete. Total records fetched: 0 across 1 page(s).
+2026-11-11 15:26:26,455 - Data.meta_api - WARNING - No records to normalise — returning empty DataFrame.
+2026-11-11 15:26:33,552 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-11-11 15:26:34,602 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-11-11 15:26:34,605 - Data.meta_api - INFO - Initiating Meta Graph API fetch | account=act_1141259672210201 | preset=maximum | start=None | end=None | demographics=True
+2026-11-11 15:26:34,605 - Data.meta_api - INFO - Fetching page 1 from Meta API: https://graph.facebook.com/v20.0/act_1141259672210201/insights
+2026-11-11 15:26:36,279 - Data.meta_api - INFO - Pagination complete. Total records fetched: 0 across 1 page(s).
+2026-11-11 15:26:36,280 - Data.meta_api - WARNING - Retrying Meta API fetch without demographic breakdowns.
+2026-11-11 15:26:36,281 - Data.meta_api - INFO - Fetching page 1 from Meta API: https://graph.facebook.com/v20.0/act_1141259672210201/insights
+2026-11-11 15:26:38,019 - Data.meta_api - INFO - Pagination complete. Total records fetched: 0 across 1 page(s).
+2026-11-11 15:26:38,021 - Data.meta_api - WARNING - No records to normalise — returning empty DataFrame.
+2026-11-11 15:27:26,350 - visualization.ui_components - INFO - Successfully loaded custom CSS stylesheet from '/home/shaw/Documents/market_analyzer/.streamlit/style.css'
+2026-11-11 15:27:26,353 - Data.meta_api - INFO - Initiating Meta Graph API fetch | account=act_1141259672210201 | preset=maximum | start=None | end=None | demographics=True
+2026-11-11 15:27:26,353 - Data.meta_api - INFO - Fetching page 1 from Meta API: https://graph.facebook.com/v20.0/act_1141259672210201/insights
+2026-11-11 15:27:27,010 - Data.meta_api - INFO - Pagination complete. Total records fetched: 0 across 1 page(s).
+2026-11-11 15:27:27,011 - Data.meta_api - WARNING - Retrying Meta API fetch without demographic breakdowns.
+2026-11-11 15:27:27,011 - Data.meta_api - INFO - Fetching page 1 from Meta API: https://graph.facebook.com/v20.0/act_1141259672210201/insights
+2026-11-11 15:27:27,873 - Data.meta_api - INFO - Pagination complete. Total records fetched: 0 across 1 page(s).
+2026-11-11 15:27:27,875 - Data.meta_api - WARNING - No records to normalise — returning empty DataFrame.

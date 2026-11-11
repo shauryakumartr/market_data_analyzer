@@ -25,6 +25,7 @@ emoji = "*"
 plotly = "*"
 dotenv = "*"
 google-genai = "*"
+facebook-business = "*"
 
 [dev-packages]
 
